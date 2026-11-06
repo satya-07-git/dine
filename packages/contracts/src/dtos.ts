@@ -73,6 +73,11 @@ export interface RestaurantResponseDto {
   lead_time_max_days: number;
   latitude?: number | null;
   longitude?: number | null;
+  is_published?: boolean;
+  status?: string;
+  price_tier?: string;
+  cover_image_url?: string | null;
+  media_gallery?: any[];
   opening_hours?: OpeningHourDto[];
   special_closures?: SpecialClosureDto[];
   cuisines?: CuisineDto[];
@@ -109,4 +114,90 @@ export interface BookingResponseDto {
   policy_snapshot: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+// ============================================================================
+// EPIC-005 Discovery, Menus & Public Media DTOs
+// ============================================================================
+
+export interface PaginatedResponseDto<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface RestaurantDiscoveryDto {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  timezone: string;
+  price_tier: string;
+  policy_mode: PolicyMode;
+  deposit_amount_minor: number;
+  deposit_currency: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  distance_km?: number | null;
+  cover_image_url?: string | null;
+  cuisines: CuisineDto[];
+}
+
+export interface RestaurantSearchQueryDto {
+  q?: string;
+  cuisine?: string;
+  price_tier?: string;
+  limit?: number;
+  offset?: number;
+  sort?: string;
+}
+
+export interface NearbySearchQueryDto {
+  lat: number;
+  lng: number;
+  radius_km?: number;
+  cuisine?: string;
+  price_tier?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface MenuItemDto {
+  id: string;
+  restaurant_id: string;
+  category_id?: string | null;
+  name: string;
+  description?: string | null;
+  price_minor: number;
+  currency: string;
+  is_available: boolean;
+  dietary_tags: string[];
+  image_url?: string | null;
+  display_order: number;
+}
+
+export interface MenuCategoryDto {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  description?: string | null;
+  display_order: number;
+  items: MenuItemDto[];
+}
+
+export interface RestaurantMediaDto {
+  id: string;
+  restaurant_id: string;
+  url: string;
+  caption?: string | null;
+  media_type: string;
+  is_featured: boolean;
+  display_order: number;
+}
+
+export interface RestaurantMenuDto {
+  restaurant_id: string;
+  categories: MenuCategoryDto[];
+  media: RestaurantMediaDto[];
 }

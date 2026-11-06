@@ -7,9 +7,18 @@ import {
   cuisines,
   restaurantCuisines,
   restaurantPolicyHistory,
+  menuCategories,
+  menuItems,
+  restaurantMedia,
 } from '../../common/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { NotFoundError } from '../../common/errors/app-error';
+import {
+  RestaurantMenuDto,
+  MenuCategoryDto,
+  MenuItemDto,
+  RestaurantMediaDto,
+} from '@dine/contracts';
 
 @Injectable()
 export class RestaurantsService {
@@ -27,7 +36,7 @@ export class RestaurantsService {
 
   async getPublishedDetails(id: string) {
     const rest = await this.findById(id);
-    if (!rest) {
+    if (!rest || !rest.isPublished || rest.status !== 'PUBLISHED') {
       throw new NotFoundError(`Restaurant with ID ${id} not found`);
     }
 
@@ -60,14 +69,16 @@ export class RestaurantsService {
     let restaurantCuisineList: any[] = [];
     try {
       const pool = this.db.getPool();
-      const res = await pool.query(
-        `SELECT c.id, c.name, c.slug
-         FROM cuisines c
-         JOIN restaurant_cuisines rc ON rc.cuisine_id = c.id
-         WHERE rc.restaurant_id = $1`,
-        [id]
-      );
-      restaurantCuisineList = res.rows;
+      if (pool) {
+        const res = await pool.query(
+          `SELECT c.id, c.name, c.slug
+           FROM cuisines c
+           JOIN restaurant_cuisines rc ON rc.cuisine_id = c.id
+           WHERE rc.restaurant_id = $1`,
+          [id]
+        );
+        restaurantCuisineList = res.rows;
+      }
     } catch {
       restaurantCuisineList = [];
     }
@@ -90,6 +101,8 @@ export class RestaurantsService {
       lead_time_max_days: rest.leadTimeMaxDays,
       latitude: rest.latitude,
       longitude: rest.longitude,
+      price_tier: rest.priceTier,
+      cover_image_url: rest.coverImageUrl,
       opening_hours: hours,
       special_closures: closures,
       cuisines: restaurantCuisineList,
@@ -103,5 +116,99 @@ export class RestaurantsService {
       .from(restaurantPolicyHistory)
       .where(eq(restaurantPolicyHistory.restaurantId, restaurantId))
       .orderBy(asc(restaurantPolicyHistory.version));
+  }
+
+  /**
+   * Retrieves public menu catalog and media for a published restaurant.
+   * Excludes unpublished venues and private cost/staff data.
+   */
+  async getPublishedMenu(restaurantId: string): Promise<RestaurantMenuDto> {
+    const rest = await this.findById(restaurantId);
+    if (!rest || !rest.isPublished || rest.status !== 'PUBLISHED') {
+      throw new NotFoundError(`Restaurant with ID ${restaurantId} not found or not published`);
+    }
+
+    const pool = this.db.getPool();
+    if (!pool) {
+      return {
+        restaurant_id: restaurantId,
+        categories: [],
+        media: [],
+      };
+    }
+
+    try {
+      const categoriesQuery = `
+        SELECT id, restaurant_id, name, description, display_order
+        FROM menu_categories
+        WHERE restaurant_id = $1 AND is_active = true
+        ORDER BY display_order ASC
+      `;
+
+      const itemsQuery = `
+        SELECT id, restaurant_id, category_id, name, description, price_minor, currency, is_available, dietary_tags, image_url, display_order
+        FROM menu_items
+        WHERE restaurant_id = $1 AND is_available = true
+        ORDER BY display_order ASC
+      `;
+
+      const mediaQuery = `
+        SELECT id, restaurant_id, url, caption, media_type, is_featured, display_order
+        FROM restaurant_media
+        WHERE restaurant_id = $1
+        ORDER BY display_order ASC
+      `;
+
+      const [catRes, itemsRes, mediaRes] = await Promise.all([
+        pool.query(categoriesQuery, [restaurantId]),
+        pool.query(itemsQuery, [restaurantId]),
+        pool.query(mediaQuery, [restaurantId]),
+      ]);
+
+      const allItems: MenuItemDto[] = itemsRes.rows.map((row: any) => ({
+        id: row.id,
+        restaurant_id: row.restaurant_id,
+        category_id: row.category_id,
+        name: row.name,
+        description: row.description,
+        price_minor: row.price_minor,
+        currency: row.currency,
+        is_available: row.is_available,
+        dietary_tags: Array.isArray(row.dietary_tags) ? row.dietary_tags : [],
+        image_url: row.image_url,
+        display_order: row.display_order,
+      }));
+
+      const categories: MenuCategoryDto[] = catRes.rows.map((cat: any) => ({
+        id: cat.id,
+        restaurant_id: cat.restaurant_id,
+        name: cat.name,
+        description: cat.description,
+        display_order: cat.display_order,
+        items: allItems.filter((i) => i.category_id === cat.id),
+      }));
+
+      const media: RestaurantMediaDto[] = mediaRes.rows.map((m: any) => ({
+        id: m.id,
+        restaurant_id: m.restaurant_id,
+        url: m.url,
+        caption: m.caption,
+        media_type: m.media_type,
+        is_featured: m.is_featured,
+        display_order: m.display_order,
+      }));
+
+      return {
+        restaurant_id: restaurantId,
+        categories,
+        media,
+      };
+    } catch {
+      return {
+        restaurant_id: restaurantId,
+        categories: [],
+        media: [],
+      };
+    }
   }
 }

@@ -12,27 +12,45 @@ VALUES
     ('a0000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000006', 'Suspended Staff Eve', 'eve@suspended.local', '+919876543215')
 ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, auth_uid = EXCLUDED.auth_uid;
 
--- 2. Restaurants (Two distinct tenant restaurants with full policy attributes)
+-- 2. Restaurants (Multi-tenant venues with discovery, policy, and spatial attributes)
 INSERT INTO restaurants (
     id, name, slug, description, timezone, policy_mode,
     deposit_amount_minor, deposit_currency, default_duration_min, turnover_buffer_min,
     policy_version, min_party_size, max_party_size, lead_time_min_minutes, lead_time_max_days,
-    latitude, longitude
+    latitude, longitude, is_published, status, price_tier, cover_image_url
 )
 VALUES 
     (
         'b0000000-0000-0000-0000-000000000001', 'The Royal Dine Bistro', 'the-royal-dine-bistro',
-        'Flagship fine dining venue for Dine platform testing', 'Asia/Kolkata', 'FREE_RESERVATION',
+        'Flagship fine dining venue for Dine platform testing in Bangalore', 'Asia/Kolkata', 'FREE_RESERVATION',
         0, 'INR', 90, 15,
         1, 1, 12, 30, 60,
-        12.9716, 77.5946
+        12.9716, 77.5946, true, 'PUBLISHED', '$$$',
+        'https://supabase.local/storage/v1/object/public/restaurant-media/b1/hero.jpg'
     ),
     (
         'b0000000-0000-0000-0000-000000000002', 'The Grand Amber Palace', 'the-grand-amber-palace',
-        'Second tenant venue for cross-tenant isolation testing', 'Asia/Kolkata', 'DEPOSIT_REQUIRED',
+        'Luxury dining destination in Mumbai for cross-tenant testing', 'Asia/Kolkata', 'DEPOSIT_REQUIRED',
         50000, 'INR', 120, 15,
         1, 2, 20, 60, 30,
-        19.0760, 72.8777
+        19.0760, 72.8777, true, 'PUBLISHED', '$$$$',
+        'https://supabase.local/storage/v1/object/public/restaurant-media/b2/hero.jpg'
+    ),
+    (
+        'b0000000-0000-0000-0000-000000000003', 'The Heritage Club (Retired)', 'the-heritage-club-retired',
+        'Retired historic venue; must be excluded from public discovery', 'Asia/Kolkata', 'FREE_RESERVATION',
+        0, 'INR', 90, 15,
+        1, 1, 10, 30, 30,
+        12.9750, 77.5900, false, 'RETIRED', '$$',
+        null
+    ),
+    (
+        'b0000000-0000-0000-0000-000000000004', 'The Northern Frontier', 'the-northern-frontier',
+        'Fine North Indian dining in New Delhi for geo-distance testing', 'Asia/Kolkata', 'FREE_RESERVATION',
+        0, 'INR', 90, 15,
+        1, 1, 15, 30, 60,
+        28.6139, 77.2090, true, 'PUBLISHED', '$$',
+        'https://supabase.local/storage/v1/object/public/restaurant-media/b4/hero.jpg'
     )
 ON CONFLICT (slug) DO UPDATE SET 
     name = EXCLUDED.name,
@@ -42,7 +60,11 @@ ON CONFLICT (slug) DO UPDATE SET
     default_duration_min = EXCLUDED.default_duration_min,
     turnover_buffer_min = EXCLUDED.turnover_buffer_min,
     min_party_size = EXCLUDED.min_party_size,
-    max_party_size = EXCLUDED.max_party_size;
+    max_party_size = EXCLUDED.max_party_size,
+    is_published = EXCLUDED.is_published,
+    status = EXCLUDED.status,
+    price_tier = EXCLUDED.price_tier,
+    cover_image_url = EXCLUDED.cover_image_url;
 
 -- 3. Cuisines & Associations
 INSERT INTO cuisines (id, name, slug)
@@ -50,7 +72,8 @@ VALUES
     ('11000000-0000-0000-0000-000000000001', 'Contemporary Indian', 'contemporary-indian'),
     ('11000000-0000-0000-0000-000000000002', 'Pan-Asian', 'pan-asian'),
     ('11000000-0000-0000-0000-000000000003', 'European Continental', 'european-continental'),
-    ('11000000-0000-0000-0000-000000000004', 'Italian Fine Dining', 'italian-fine-dining')
+    ('11000000-0000-0000-0000-000000000004', 'Italian Fine Dining', 'italian-fine-dining'),
+    ('11000000-0000-0000-0000-000000000005', 'North Indian', 'north-indian')
 ON CONFLICT (slug) DO NOTHING;
 
 INSERT INTO restaurant_cuisines (restaurant_id, cuisine_id)
@@ -58,7 +81,8 @@ VALUES
     ('b0000000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000001'),
     ('b0000000-0000-0000-0000-000000000001', '11000000-0000-0000-0000-000000000003'),
     ('b0000000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000001'),
-    ('b0000000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000004')
+    ('b0000000-0000-0000-0000-000000000002', '11000000-0000-0000-0000-000000000004'),
+    ('b0000000-0000-0000-0000-000000000004', '11000000-0000-0000-0000-000000000005')
 ON CONFLICT DO NOTHING;
 
 -- 4. Initial Policy History Snapshots
@@ -157,4 +181,27 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO waitlist_entries (id, restaurant_id, user_id, party_size, requested_start, status)
 VALUES 
     ('20000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 4, '2026-11-10 20:00:00+00', 'WAITING')
+ON CONFLICT (id) DO NOTHING;
+
+-- 11. Menu Categories & Items (EPIC-005 Public Menu Catalog)
+INSERT INTO menu_categories (id, restaurant_id, name, description, display_order, is_active)
+VALUES
+    ('44000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Starters', 'Small plates and artisanal appetizers', 1, true),
+    ('44000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'Main Course', 'Chef-crafted signature mains', 2, true),
+    ('44000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Desserts', 'Decadent sweet endings', 3, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO menu_items (id, restaurant_id, category_id, name, description, price_minor, currency, is_available, dietary_tags, image_url, display_order)
+VALUES
+    ('55000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', '44000000-0000-0000-0000-000000000001', 'Truffle Naan Bites', 'Crispy mini naan with black truffle butter', 45000, 'INR', true, '{"VEG"}', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/naan.jpg', 1),
+    ('55000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', '44000000-0000-0000-0000-000000000001', 'Smoked Galouti Kebab', 'Melt-in-mouth lamb kebab smoked with cloves', 65000, 'INR', true, '{}', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/galouti.jpg', 2),
+    ('55000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', '44000000-0000-0000-0000-000000000002', 'Old Delhi Butter Chicken', 'Classic rich tomato cream gravy with tandoori morsels', 85000, 'INR', true, '{}', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/butter_chicken.jpg', 1),
+    ('55000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000001', '44000000-0000-0000-0000-000000000003', 'Cardamom Saffron Panna Cotta', 'Silky infused Italian panna cotta with pistachio crumb', 38000, 'INR', true, '{"VEG"}', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/panna_cotta.jpg', 1)
+ON CONFLICT (id) DO NOTHING;
+
+-- 12. Public Restaurant Media (EPIC-005 Public Media Storage Boundaries)
+INSERT INTO restaurant_media (id, restaurant_id, url, caption, media_type, is_featured, display_order)
+VALUES
+    ('66000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/interior_main.jpg', 'Main Dining Room Architectural View', 'IMAGE', true, 1),
+    ('66000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/cocktail_bar.jpg', 'Artisanal Mixology Bar', 'IMAGE', false, 2)
 ON CONFLICT (id) DO NOTHING;

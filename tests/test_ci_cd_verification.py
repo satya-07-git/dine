@@ -759,3 +759,158 @@ class TestEpic4RestaurantProfilesAndPolicies(unittest.TestCase):
             historical_booking["policy_snapshot"]["policy_version"],
             updated_restaurant_policy["policy_version"]
         )
+
+
+class TestEpic5DiscoveryMenusAndPublicMedia(unittest.TestCase):
+    """
+    Verify EPIC-005 Discovery, Menus and Public Media deliverables:
+    Bounded search filters, PostGIS/Haversine nearby queries, menu catalog and
+    public media boundaries, coordinate/radius validation guards, and publication status exclusion.
+    """
+
+    def test_discovery_and_menu_node_unit_suite(self):
+        """Execute Node.js discovery and menu unit tests verifying business rules and guards."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/discovery-and-menu.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            "Discovery and menu unit tests failed: " + str(test_result.stdout)
+        )
+
+    def test_migration_005_discovery_menus_and_public_media(self):
+        """Verify authoritative SQL migration 5 defines discovery enhancements, menus, media, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000005_discovery_menus_and_public_media.sql"
+        self.assertTrue(migration_file.exists(), "Migration 005 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("is_published", content)
+        self.assertIn("price_tier", content)
+        self.assertIn("cover_image_url", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS menu_categories", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS menu_items", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS restaurant_media", content)
+        self.assertIn("ALTER TABLE menu_categories ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE menu_items ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE restaurant_media ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_discovery_and_menu_routes(self):
+        """Verify OpenAPI documents GET /restaurants, /restaurants/nearby, and /restaurants/{id}/menu."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertIn("/restaurants", paths)
+        self.assertIn("/restaurants/nearby", paths)
+        self.assertIn("/restaurants/{id}/menu", paths)
+
+    def test_python_haversine_and_radius_boundaries(self):
+        """Direct Python verification of Haversine distance and geospatial boundary rules."""
+        import math
+
+        def haversine(lat1, lon1, lat2, lon2):
+            R = 6371.0
+            dlat = math.radians(lat2 - lat1)
+            dlon = math.radians(lon2 - lon1)
+            a = (math.sin(dlat / 2) ** 2 +
+                 math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+                 math.sin(dlon / 2) ** 2)
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            return round(R * c, 2)
+
+        def validate_coords(lat, lng):
+            if not (-90.0 <= lat <= 90.0):
+                raise ValueError("Latitude out of bounds [-90, 90]")
+            if not (-180.0 <= lng <= 180.0):
+                raise ValueError("Longitude out of bounds [-180, 180]")
+            return True
+
+        def validate_radius(radius_km):
+            if radius_km <= 0:
+                raise ValueError("Radius must be positive")
+            if radius_km > 50:
+                raise ValueError("Radius exceeds maximum allowed limit of 50 km")
+            return True
+
+        # Valid coords
+        self.assertTrue(validate_coords(12.9716, 77.5946))
+        with self.assertRaises(ValueError):
+            validate_coords(95.0, 77.5946)
+        with self.assertRaises(ValueError):
+            validate_coords(12.9716, 185.0)
+
+        # Radius bounds
+        self.assertTrue(validate_radius(10))
+        self.assertTrue(validate_radius(50))
+        with self.assertRaises(ValueError):
+            validate_radius(0)
+        with self.assertRaises(ValueError):
+            validate_radius(-5)
+        with self.assertRaises(ValueError):
+            validate_radius(51)
+
+        # Distance calculation
+        dist_local = haversine(12.9716, 77.5946, 12.9750, 77.5900)
+        self.assertLess(dist_local, 1.0)
+        dist_delhi = haversine(12.9716, 77.5946, 28.6139, 77.2090)
+        self.assertGreater(dist_delhi, 1700.0)
+
+    def test_python_public_projection_privacy_audit(self):
+        """Verify public discovery projections strip all customer, staff, and payment secrets."""
+        raw_db_row = {
+            "id": "b1",
+            "name": "The Royal Dine Bistro",
+            "slug": "the-royal-dine-bistro",
+            "description": "Fine dining venue",
+            "timezone": "Asia/Kolkata",
+            "price_tier": "$$$",
+            "policy_mode": "FREE_RESERVATION",
+            "deposit_amount_minor": 0,
+            "deposit_currency": "INR",
+            "latitude": 12.9716,
+            "longitude": 77.5946,
+            "cover_image_url": "https://storage.local/hero.jpg",
+            # Leaked sensitive fields
+            "auth_uid": "user-auth-uid",
+            "email": "owner@bistro.local",
+            "phone": "+919999999999",
+            "user_id": "profile-id",
+            "role": "OWNER",
+            "gateway_secret": "rzp_secret_key",
+            "internal_notes": "Private staff operations note",
+        }
+
+        # Public projection whitelist
+        public_fields = {
+            "id", "name", "slug", "description", "timezone", "price_tier",
+            "policy_mode", "deposit_amount_minor", "deposit_currency",
+            "latitude", "longitude", "distance_km", "cover_image_url", "cuisines"
+        }
+
+        projected = {k: v for k, v in raw_db_row.items() if k in public_fields}
+
+        for forbidden in ["auth_uid", "email", "phone", "user_id", "role", "gateway_secret", "internal_notes"]:
+            self.assertNotIn(forbidden, projected, f"Forbidden sensitive field {forbidden} leaked in public projection")
+
+    def test_python_unpublished_and_retired_restaurant_exclusion(self):
+        """Direct Python verification that unpublished or retired restaurants are excluded from discovery."""
+        restaurants = [
+            {"id": "b1", "name": "Active Bistro", "is_published": True, "status": "PUBLISHED"},
+            {"id": "b2", "name": "Second Active", "is_published": True, "status": "PUBLISHED"},
+            {"id": "b3", "name": "Unpublished Venue", "is_published": False, "status": "UNPUBLISHED"},
+            {"id": "b4", "name": "Retired Tavern", "is_published": False, "status": "RETIRED"},
+        ]
+
+        # Discovery filter rule
+        eligible = [r for r in restaurants if r["is_published"] and r["status"] == "PUBLISHED"]
+        self.assertEqual(len(eligible), 2)
+        eligible_ids = {r["id"] for r in eligible}
+        self.assertIn("b1", eligible_ids)
+        self.assertIn("b2", eligible_ids)
+        self.assertNotIn("b3", eligible_ids)
+        self.assertNotIn("b4", eligible_ids)

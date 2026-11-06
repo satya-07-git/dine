@@ -28,7 +28,7 @@ export const profiles = pgTable('profiles', {
 });
 
 // ============================================================================
-// 2. Restaurants, Cuisines, Hours & Policies (EPIC-004)
+// 2. Restaurants, Cuisines, Hours & Policies (EPIC-004 & EPIC-005)
 // ============================================================================
 export const cuisines = pgTable('cuisines', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -55,6 +55,11 @@ export const restaurants = pgTable('restaurants', {
   leadTimeMaxDays: integer('lead_time_max_days').default(60).notNull(),
   latitude: doublePrecision('latitude'),
   longitude: doublePrecision('longitude'),
+  isPublished: boolean('is_published').default(true).notNull(),
+  status: text('status').default('PUBLISHED').notNull(),
+  priceTier: varchar('price_tier', { length: 5 }).default('$$').notNull(),
+  coverImageUrl: text('cover_image_url'),
+  mediaGallery: jsonb('media_gallery').default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -114,6 +119,47 @@ export const restaurantPolicyHistory = pgTable('restaurant_policy_history', {
   leadTimeMaxDays: integer('lead_time_max_days').notNull(),
   changedBy: uuid('changed_by').references(() => profiles.id),
   changeReason: text('change_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ============================================================================
+// 2.1 Menu Catalog & Public Media (EPIC-005)
+// ============================================================================
+export const menuCategories = pgTable('menu_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  name: text('name').notNull(),
+  description: text('description'),
+  displayOrder: integer('display_order').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const menuItems = pgTable('menu_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  categoryId: uuid('category_id').references(() => menuCategories.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  priceMinor: integer('price_minor').notNull(),
+  currency: varchar('currency', { length: 3 }).default('INR').notNull(),
+  isAvailable: boolean('is_available').default(true).notNull(),
+  dietaryTags: text('dietary_tags').array().default([]).notNull(),
+  imageUrl: text('image_url'),
+  displayOrder: integer('display_order').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const restaurantMedia = pgTable('restaurant_media', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  url: text('url').notNull(),
+  caption: text('caption'),
+  mediaType: varchar('media_type', { length: 20 }).default('IMAGE').notNull(),
+  isFeatured: boolean('is_featured').default(false).notNull(),
+  displayOrder: integer('display_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

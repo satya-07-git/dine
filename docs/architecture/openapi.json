@@ -160,6 +160,156 @@
         ]
       }
     },
+    "/restaurants": {
+      "get": {
+        "operationId": "RestaurantsController_searchRestaurants",
+        "summary": "Public filtered restaurant discovery",
+        "description": "Returns a bounded paginated list of published restaurants matching cuisine, price tier, and text query.",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Search term for restaurant name or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cuisine",
+            "required": false,
+            "in": "query",
+            "description": "Cuisine slug or name filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_tier",
+            "required": false,
+            "in": "query",
+            "description": "Price tier filter: $, $$, $$$, $$$$",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Pagination limit (1-50, default 20)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Pagination offset (>= 0, default 0)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of matching published restaurants"
+          },
+          "400": {
+            "description": "Invalid filter or excessive pagination bound"
+          }
+        },
+        "tags": [
+          "Restaurants",
+          "Discovery"
+        ]
+      }
+    },
+    "/restaurants/nearby": {
+      "get": {
+        "operationId": "RestaurantsController_getNearby",
+        "summary": "Geospatial nearby restaurant discovery",
+        "description": "Returns published restaurants within the requested radius (km) sorted by distance using PostGIS geography.",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "description": "Latitude [-90, +90]",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": true,
+            "in": "query",
+            "description": "Longitude [-180, +180]",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "radius_km",
+            "required": false,
+            "in": "query",
+            "description": "Search radius in km (0 < radius <= 50, default 10)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "cuisine",
+            "required": false,
+            "in": "query",
+            "description": "Cuisine slug or name filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_tier",
+            "required": false,
+            "in": "query",
+            "description": "Price tier filter: $, $$, $$$, $$$$",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Pagination limit (1-50, default 20)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Pagination offset (>= 0, default 0)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby published restaurants sorted by distance"
+          },
+          "400": {
+            "description": "Out-of-range coordinates or excessive radius bounds"
+          }
+        },
+        "tags": [
+          "Restaurants",
+          "Discovery"
+        ]
+      }
+    },
     "/restaurants/{id}": {
       "get": {
         "operationId": "RestaurantsController_getRestaurant",
@@ -180,23 +330,25 @@
             "description": "Published restaurant details and policies"
           },
           "404": {
-            "description": "Restaurant not found"
+            "description": "Restaurant not found or unpublished"
           }
         },
         "tags": [
-          "Restaurants"
+          "Restaurants",
+          "Discovery"
         ]
       }
     },
-    "/discovery/search": {
+    "/restaurants/{id}/menu": {
       "get": {
-        "operationId": "DiscoveryController_search",
-        "summary": "Search restaurants by location and cuisine",
+        "operationId": "RestaurantsController_getRestaurantMenu",
+        "summary": "Get published restaurant menu catalog",
+        "description": "Returns public menu categories, available dishes with minor-unit pricing, and public restaurant media.",
         "parameters": [
           {
-            "name": "q",
+            "name": "id",
             "required": true,
-            "in": "query",
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -204,7 +356,159 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Published menu catalog and public media"
+          },
+          "404": {
+            "description": "Restaurant not found or unpublished"
+          }
+        },
+        "tags": [
+          "Restaurants",
+          "Discovery"
+        ]
+      }
+    },
+    "/discovery/search": {
+      "get": {
+        "operationId": "DiscoveryController_search",
+        "summary": "Search restaurants by cuisine, price, and text query",
+        "description": "Returns bounded paginated list of published restaurants matching criteria.",
+        "parameters": [
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "Search term for restaurant name or description",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cuisine",
+            "required": false,
+            "in": "query",
+            "description": "Cuisine slug or name filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_tier",
+            "required": false,
+            "in": "query",
+            "description": "Price tier filter: $, $$, $$$, $$$$",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Pagination limit (1-50, default 20)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Pagination offset (>= 0, default 0)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching published restaurants"
+          },
+          "400": {
+            "description": "Invalid filter parameters"
+          }
+        },
+        "tags": [
+          "Discovery"
+        ]
+      }
+    },
+    "/discovery/nearby": {
+      "get": {
+        "operationId": "DiscoveryController_nearby",
+        "summary": "Search restaurants nearby coordinates within radius",
+        "description": "Returns published restaurants within radius (km) sorted by distance.",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "description": "Latitude [-90, +90]",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "lng",
+            "required": true,
+            "in": "query",
+            "description": "Longitude [-180, +180]",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "radius_km",
+            "required": false,
+            "in": "query",
+            "description": "Radius in km (max 50 km)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "cuisine",
+            "required": false,
+            "in": "query",
+            "description": "Cuisine filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "price_tier",
+            "required": false,
+            "in": "query",
+            "description": "Price tier filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Pagination limit",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Pagination offset",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby published restaurants"
+          },
+          "400": {
+            "description": "Out-of-range coordinates or excessive radius"
           }
         },
         "tags": [
