@@ -1,10 +1,18 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+export interface UserMembership {
+  restaurantId: string;
+  role: 'OWNER' | 'MANAGER' | 'HOST';
+  status: 'ACTIVE' | 'INVITED' | 'SUSPENDED';
+}
+
 export interface AuthenticatedUser {
   userId: string;
   email: string;
   role?: string;
+  authUid?: string;
   restaurantId?: string;
+  memberships?: UserMembership[];
 }
 
 export const CurrentUser = createParamDecorator(

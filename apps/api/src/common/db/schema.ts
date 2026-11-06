@@ -18,6 +18,7 @@ import {
 // ============================================================================
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
+  authUid: uuid('auth_uid').unique(),
   fullName: text('full_name').notNull(),
   email: text('email').notNull().unique(),
   phone: text('phone'),

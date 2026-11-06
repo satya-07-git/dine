@@ -32,8 +32,8 @@ npm run build
 echo ">> TypeScript compilation succeeded."
 
 echo ""
-echo "[GATE 4/8] Running Node.js Foundation Unit Tests..."
-node --test tests/unit/foundation.test.js
+echo "[GATE 4/8] Running Node.js Unit Tests (Foundation & Identity)..."
+node --test tests/unit/foundation.test.js tests/unit/identity.test.js
 echo ">> Node.js unit tests passed."
 
 echo ""

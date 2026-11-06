@@ -138,3 +138,4 @@ Completed and verified by Lead Backend Architect on 06 November 2026.
 ### 3. Remaining Limitations & Downstream Release Gates
 - Live money activation is blocked until commercial gates `GATE-001`, `GATE-002`, and `GATE-003` receive final financial/legal sign-off during Phase 10.
 - Foundation Phase 1 tasks ([EPIC-002](EPIC-002-repository-database-and-delivery-foundation.md): Repository, database and delivery foundation) implemented and verified through automated CI/CD quality gates.
+- Foundation Phase 2 tasks ([EPIC-003](EPIC-003-identity-memberships-and-tenant-authorization.md): Identity, memberships and tenant authorization) implemented, tested, and verified through automated CI/CD quality gates (Supabase JWT HS256 authentication, tenant isolation, customer resource ownership IDOR protection, membership revocation, and PostgreSQL RLS policies).

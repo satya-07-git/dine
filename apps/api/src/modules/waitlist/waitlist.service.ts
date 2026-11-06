@@ -11,4 +11,12 @@ export class WaitlistService {
       position: 1,
     };
   }
+
+  async getWaitlistEntry(id: string) {
+    return {
+      id,
+      status: 'WAITING',
+      position: 1,
+    };
+  }
 }

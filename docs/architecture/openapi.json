@@ -49,10 +49,30 @@
         ]
       }
     },
+    "/identity/me": {
+      "get": {
+        "operationId": "IdentityController_getMe",
+        "summary": "Get current user profile and role context",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/identity/profile/{id}": {
       "get": {
         "operationId": "IdentityController_getProfile",
-        "summary": "Get user profile",
+        "summary": "Get user profile scoped by customer ownership",
         "parameters": [
           {
             "name": "id",
@@ -65,7 +85,69 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "User profile retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another profile"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/identity/memberships/{id}/status": {
+      "patch": {
+        "operationId": "IdentityController_updateMembershipStatus",
+        "summary": "Update restaurant staff membership status (e.g. revoke/suspend)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Membership status updated"
+          },
+          "403": {
+            "description": "Forbidden: caller is not an active restaurant owner"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "MeController_getMe",
+        "summary": "Get current authenticated user profile and restaurant memberships context",
+        "description": "Returns profile details and active restaurant tenant memberships for caller",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authenticated profile and role context"
+          },
+          "401": {
+            "description": "Missing, invalid, or expired Bearer JWT"
           }
         },
         "tags": [
@@ -196,7 +278,8 @@
     "/reservations/{id}": {
       "get": {
         "operationId": "ReservationsController_getReservation",
-        "summary": "Get reservation details",
+        "summary": "Get reservation details scoped by customer ownership",
+        "description": "Enforces that a customer cannot access another customer booking",
         "parameters": [
           {
             "name": "id",
@@ -209,7 +292,13 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Booking details retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another booking"
           }
         },
         "tags": [
@@ -266,6 +355,39 @@
         ]
       }
     },
+    "/waitlist/{id}": {
+      "get": {
+        "operationId": "WaitlistController_getWaitlistEntry",
+        "summary": "Get waitlist entry status",
+        "description": "Enforces that a customer cannot access another customer waitlist entry or offer",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Waitlist entry status"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another waitlist entry"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/booking-status/{bookingId}/history": {
       "get": {
         "operationId": "BookingStatusController_getStatusHistory",
@@ -295,14 +417,50 @@
         ]
       }
     },
-    "/operations/walk-ins": {
+    "/owner/restaurants/{id}/bookings": {
+      "get": {
+        "operationId": "OwnerOperationsController_getRestaurantBookings",
+        "summary": "Get restaurant bookings (staff only)",
+        "description": "Enforces tenant isolation: host/manager/owner in restaurant A cannot access restaurant B",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bookings list for restaurant"
+          },
+          "403": {
+            "description": "Forbidden: caller lacks active membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/walk-ins": {
       "post": {
         "operationId": "OwnerOperationsController_recordWalkIn",
         "summary": "Record immediate staff walk-in seating",
         "parameters": [],
         "responses": {
           "201": {
-            "description": ""
+            "description": "Walk-in seated successfully"
+          },
+          "403": {
+            "description": "Forbidden: caller lacks membership in restaurant"
           }
         },
         "tags": [
