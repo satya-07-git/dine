@@ -4,8 +4,10 @@ import { BookingHoldsController } from './booking-holds.controller';
 import { ReservationsService } from './reservations.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { ResourceOwnershipGuard } from '../../common/auth/ownership.guard';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
+  imports: [PaymentsModule],
   controllers: [ReservationsController, BookingHoldsController],
   providers: [ReservationsService, AuthGuard, ResourceOwnershipGuard],
   exports: [ReservationsService],

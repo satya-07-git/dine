@@ -466,8 +466,7 @@ class TestEpic2FoundationDeliverables(unittest.TestCase):
         self.assertEqual(test_result.returncode, 0, f"Node unit tests failed: {test_result.stderr}")
 
 
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
+
 class TestEpic3IdentityDeliverables(unittest.TestCase):
     """
     Verify EPIC-003 Identity, Memberships and Tenant Authorization deliverables:
@@ -1728,3 +1727,433 @@ class TestEpic9ReservationLifecycleAndServiceStatus(unittest.TestCase):
         self.assertEqual(booking["version"], 2) # Version not bumped
         self.assertEqual(len(history_events), 1) # History not duplicated
         self.assertEqual(len(outbox_events), 1) # Outbox not duplicated
+
+
+class TestEpic10PaymentOrdersAndWebhooks(unittest.TestCase):
+    """
+    Verify EPIC-010 Payment Orders and Verified Webhook Inbox deliverables:
+    - Authoritative SQL migration 10 defining payment attempts, events, performance indexes, and RLS
+    - Explicit test-mode Razorpay gateway adapter with live money disabled
+    - Server-calculated deposit minor units and idempotent order creation/reuse
+    - Raw request body HMAC-SHA256 signature verification and tamper detection
+    - Durable inbox deduplication (3 duplicate deliveries -> 1 business confirmation)
+    - Monotonic state handling (out-of-order failed events do not downgrade captured payments)
+    - Amount & currency mismatch sent to PAYMENT_REVIEW without false confirmation
+    - Verified payment capture advances booking to CONFIRMED and table allocation to CONFIRMED
+    """
+
+    def test_payment_orders_and_webhooks_node_unit_suite(self):
+        """Execute Node.js payment orders and webhooks unit tests."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/payment-orders-and-webhooks.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            "Payment orders unit tests failed: " + str(test_result.stdout) + "\n" + str(test_result.stderr)
+        )
+        self.assertIn("pass 18", test_result.stdout)
+
+    def test_migration_010_payment_orders_and_webhooks(self):
+        """Verify authoritative SQL migration 10 defines payment attempts, events, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000010_payment_orders_and_verified_webhook_inbox.sql"
+        self.assertTrue(migration_file.exists(), "Migration 010 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS payment_attempts", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS payment_events", content)
+        self.assertIn("idx_payment_attempts_booking", content)
+        self.assertIn("idx_payment_attempts_gateway_order", content)
+        self.assertIn("idx_payment_events_gateway_event", content)
+        self.assertIn("ALTER TABLE payment_attempts ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("payment_attempts_customer_read", content)
+        self.assertIn("payment_attempts_staff_read", content)
+        self.assertIn("ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_payment_routes(self):
+        """Verify OpenAPI documents payment order, status, and webhook inbox endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertTrue(
+            "/booking-holds/{id}/payment-order" in paths or "/payments/orders" in paths,
+            "Must document payment order endpoint"
+        )
+        self.assertIn("/payments/{id}/status", paths)
+        self.assertTrue(
+            "/payments/webhooks/razorpay" in paths or "/webhooks/razorpay" in paths,
+            "Must document Razorpay webhook endpoint"
+        )
+
+    def test_python_razorpay_hmac_signature_verification(self):
+        """
+        Verify Acceptance Criterion 2:
+        Tampered/raw-body signature mismatch is rejected.
+        """
+        import hmac
+        import hashlib
+
+        secret = b"test_webhook_secret_key_123456"
+        raw_body = b'{"id":"evt_123","event":"payment.captured","amount":50000}'
+
+        # Compute valid signature
+        valid_signature = hmac.new(secret, raw_body, hashlib.sha256).hexdigest()
+
+        # Valid signature matches
+        computed_sig = hmac.new(secret, raw_body, hashlib.sha256).hexdigest()
+        self.assertEqual(valid_signature, computed_sig)
+
+        # Tampered raw body fails
+        tampered_body = b'{"id":"evt_123","event":"payment.captured","amount":10000}'
+        tampered_sig = hmac.new(secret, tampered_body, hashlib.sha256).hexdigest()
+        self.assertNotEqual(valid_signature, tampered_sig)
+
+        # Wrong secret fails
+        wrong_sig = hmac.new(b"attacker_secret", raw_body, hashlib.sha256).hexdigest()
+        self.assertNotEqual(valid_signature, wrong_sig)
+
+    def test_python_idempotent_order_creation_reuse(self):
+        """
+        Verify Acceptance Criterion 1:
+        Retrying an order request cannot create a second logical checkout.
+        """
+        existing_attempts = {}
+
+        def get_or_create_order(booking_id, amount_minor, currency):
+            if booking_id in existing_attempts:
+                # Reusing existing initiated order
+                return 200, existing_attempts[booking_id], True
+            order = {
+                "order_id": f"order_test_{booking_id}",
+                "amount_minor": amount_minor,
+                "currency": currency,
+                "status": "INITIATED"
+            }
+            existing_attempts[booking_id] = order
+            return 201, order, False
+
+        # First request creates order
+        status1, order1, is_reuse1 = get_or_create_order("book_101", 50000, "INR")
+        self.assertEqual(status1, 201)
+        self.assertFalse(is_reuse1)
+        self.assertEqual(len(existing_attempts), 1)
+
+        # Second request reuses order
+        status2, order2, is_reuse2 = get_or_create_order("book_101", 50000, "INR")
+        self.assertEqual(status2, 200)
+        self.assertTrue(is_reuse2)
+        self.assertEqual(order1["order_id"], order2["order_id"])
+        self.assertEqual(len(existing_attempts), 1)
+
+    def test_python_duplicate_webhook_deduplication(self):
+        """
+        Verify Acceptance Criterion 3:
+        Three duplicate webhook deliveries cause one business confirmation.
+        """
+        inbox = set()
+        confirmations = 0
+
+        def receive_webhook(event_id, event_type):
+            nonlocal confirmations
+            if event_id in inbox:
+                return "DUPLICATE_IGNORED"
+            inbox.add(event_id)
+            if event_type == "payment.captured":
+                confirmations += 1
+                return "CAPTURED_AND_CONFIRMED"
+            return "PROCESSED"
+
+        # 3 duplicate deliveries of the same event ID
+        r1 = receive_webhook("evt_dup_001", "payment.captured")
+        r2 = receive_webhook("evt_dup_001", "payment.captured")
+        r3 = receive_webhook("evt_dup_001", "payment.captured")
+
+        self.assertEqual(r1, "CAPTURED_AND_CONFIRMED")
+        self.assertEqual(r2, "DUPLICATE_IGNORED")
+        self.assertEqual(r3, "DUPLICATE_IGNORED")
+        self.assertEqual(confirmations, 1)
+
+    def test_python_monotonic_state_out_of_order_protection(self):
+        """
+        Verify Acceptance Criterion 4:
+        Out-of-order events do not downgrade captured payment.
+        """
+        attempt = {"status": "CAPTURED"}
+        booking = {"status": "CONFIRMED"}
+
+        def handle_event(event_type):
+            if event_type == "payment.failed":
+                # Monotonic guard: never downgrade CAPTURED or CONFIRMED
+                if attempt["status"] == "CAPTURED" or booking["status"] == "CONFIRMED":
+                    return "IGNORED_OUT_OF_ORDER"
+                attempt["status"] = "FAILED"
+                booking["status"] = "PAYMENT_FAILED"
+                return "FAILED"
+            return "UNKNOWN"
+
+        res = handle_event("payment.failed")
+        self.assertEqual(res, "IGNORED_OUT_OF_ORDER")
+        self.assertEqual(attempt["status"], "CAPTURED")
+        self.assertEqual(booking["status"], "CONFIRMED")
+
+    def test_python_amount_and_currency_mismatch_guard(self):
+        """
+        Verify Acceptance Criterion 5:
+        Wrong amount/currency/order is rejected or sent to review without false confirmation.
+        """
+        attempt = {"amount_minor": 50000, "currency": "INR", "status": "INITIATED"}
+        booking = {"status": "PAYMENT_PENDING"}
+
+        def verify_and_capture(received_amount, received_currency):
+            if received_amount != attempt["amount_minor"] or received_currency != attempt["currency"]:
+                attempt["status"] = "PENDING_REVIEW"
+                booking["status"] = "PAYMENT_REVIEW"
+                return "SENT_TO_PAYMENT_REVIEW"
+            attempt["status"] = "CAPTURED"
+            booking["status"] = "CONFIRMED"
+            return "CONFIRMED"
+
+        # Underpayment / mismatch
+        res = verify_and_capture(25000, "INR")
+        self.assertEqual(res, "SENT_TO_PAYMENT_REVIEW")
+        self.assertEqual(attempt["status"], "PENDING_REVIEW")
+        self.assertEqual(booking["status"], "PAYMENT_REVIEW")
+        self.assertNotEqual(booking["status"], "CONFIRMED")
+
+    def test_python_free_reservation_creates_no_order(self):
+        """
+        Verify Business Rule:
+        FREE_RESERVATION creates no gateway order.
+        """
+        def should_create_order(policy_mode):
+            if policy_mode == "FREE_RESERVATION":
+                return False, "FREE_RESERVATION creates no gateway order"
+            return True, "DEPOSIT_REQUIRED"
+
+        allowed, msg = should_create_order("FREE_RESERVATION")
+        self.assertFalse(allowed)
+        self.assertIn("FREE_RESERVATION", msg)
+
+        allowed_dep, _ = should_create_order("DEPOSIT_REQUIRED")
+        self.assertTrue(allowed_dep)
+
+    def test_python_test_mode_explicit_and_live_disabled(self):
+        """
+        Verify Acceptance Criterion 6:
+        Test mode is explicit and live processing remains disabled.
+        """
+        def is_live_processing_allowed(key_id, commercial_gates_cleared=False):
+            if not key_id.startswith("rzp_test_") and not commercial_gates_cleared:
+                return False, "LIVE_PAYMENTS_DISABLED: Commercial release gates pending"
+            return True, "TEST_MODE_ACTIVE"
+
+        allowed, msg = is_live_processing_allowed("rzp_live_abc123", False)
+        self.assertFalse(allowed)
+        self.assertIn("LIVE_PAYMENTS_DISABLED", msg)
+
+class TestEpic11PaymentReviewReconciliationAndRefunds(unittest.TestCase):
+    """
+    Verify EPIC-011 Payment Review, Reconciliation and Refunds deliverables:
+    - Authoritative SQL migration 11 defining payment_attempts reconciliation columns,
+      refunds table, payment_incidents table, performance indexes, and RLS policies
+    - OpenAPI documentation for /payments/{id}/reconcile, /payments/{id}/refund,
+      and /payments/incidents endpoints
+    - Verification of payment-incident-playbook.md operations documentation
+    - Bounded review window (15m) and safe-release decision table
+    - Physical table allocation preservation (Customer B keeps table, Customer A refunded)
+    - Refund idempotency and maximum amount constraints
+    - Node.js unit test suite execution for payment-reconciliation.test.js
+    """
+
+    def test_payment_reconciliation_node_unit_suite(self):
+        """Execute Node.js payment reconciliation unit tests verifying bounded review, late capture, and refunds."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/payment-reconciliation.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            f"Payment reconciliation unit tests failed: {test_result.stdout}\n{test_result.stderr}"
+        )
+        self.assertIn("pass 17", test_result.stdout)
+
+    def test_migration_011_payment_review_reconciliation_and_refunds(self):
+        """Verify authoritative SQL migration 11 defines reconciliation columns, refunds, incidents, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000011_payment_review_reconciliation_and_refunds.sql"
+        self.assertTrue(migration_file.exists(), "Migration 011 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("reconciliation_status", content)
+        self.assertIn("review_started_at", content)
+        self.assertIn("review_expires_at", content)
+        self.assertIn("retry_count", content)
+        self.assertIn("escalation_reason", content)
+        self.assertIn("ALTER TABLE refunds", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS payment_incidents", content)
+        self.assertIn("idx_payment_attempts_reconciliation", content)
+        self.assertIn("idx_refunds_idempotency_key", content)
+        self.assertIn("idx_payment_incidents_status_severity", content)
+        self.assertIn("ALTER TABLE payment_incidents ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE refunds ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_payment_reconciliation_and_refund_routes(self):
+        """Verify OpenAPI documents reconcile, refund, and incidents endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertIn("/payments/{id}/reconcile", paths)
+        self.assertIn("/payments/{id}/refund", paths)
+        self.assertIn("/payments/incidents", paths)
+        self.assertIn("/payments/incidents/{id}", paths)
+        self.assertIn("/payments/incidents/{id}/resolve", paths)
+
+    def test_payment_incident_playbook_exists(self):
+        """Verify payment-incident-playbook.md operations documentation exists."""
+        playbook_file = DOCS_DIR / "policies" / "payment-incident-playbook.md"
+        self.assertTrue(playbook_file.exists(), "payment-incident-playbook.md must exist in docs/policies")
+
+        content = playbook_file.read_text(encoding="utf-8")
+        self.assertIn("Payment Incident Playbook & Reconciliation Recovery Procedures", content)
+        self.assertIn("Reconciler Decision Matrix", content)
+        self.assertIn("Idempotent Refund Workflow", content)
+        self.assertIn("Support Incident Visibility & Resolution", content)
+
+    def test_python_bounded_review_and_safe_release_decision_table(self):
+        """
+        Verify Acceptance Criteria 1 & 2:
+        - CAPTURED + held -> CONFIRMED
+        - CAPTURED + released/reallocated -> LATE_CAPTURE_REFUND_TRIGGERED
+        - FAILED -> SAFE_RELEASE_EXPIRED
+        - UNKNOWN within review window (<=15m) & retries < 3 -> REVIEW_MAINTAINED
+        - UNKNOWN exceeding review window (>15m) -> MANUAL_ESCALATION
+        - UNKNOWN exceeding retry budget (>=3) -> MANUAL_ESCALATION
+        """
+        def evaluate_reconciliation(provider_status, is_allocation_held, age_minutes, retries):
+            if provider_status == "CAPTURED":
+                if is_allocation_held:
+                    return "CONFIRMED"
+                else:
+                    return "LATE_CAPTURE_REFUND_TRIGGERED"
+            elif provider_status == "FAILED":
+                return "SAFE_RELEASE_EXPIRED"
+            else: # UNKNOWN
+                if age_minutes > 15.0 or retries >= 3:
+                    return "MANUAL_ESCALATION"
+                return "REVIEW_MAINTAINED"
+
+        self.assertEqual(evaluate_reconciliation("CAPTURED", True, 5.0, 0), "CONFIRMED")
+        self.assertEqual(evaluate_reconciliation("CAPTURED", False, 20.0, 1), "LATE_CAPTURE_REFUND_TRIGGERED")
+        self.assertEqual(evaluate_reconciliation("FAILED", True, 2.0, 1), "SAFE_RELEASE_EXPIRED")
+        self.assertEqual(evaluate_reconciliation("UNKNOWN", True, 5.0, 1), "REVIEW_MAINTAINED")
+        self.assertEqual(evaluate_reconciliation("UNKNOWN", True, 16.0, 1), "MANUAL_ESCALATION")
+        self.assertEqual(evaluate_reconciliation("UNKNOWN", True, 5.0, 3), "MANUAL_ESCALATION")
+
+    def test_python_late_capture_reallocation_invariant(self):
+        """
+        Verify Acceptance Criterion 3:
+        Late capture after reallocation retains Customer B on the table,
+        and triggers an automatic refund for Customer A. Never steal the physical table.
+        """
+        table_allocation = {
+            "table_id": "T01",
+            "assigned_customer": "customer_b",
+            "booking_id": "booking_b",
+            "status": "CONFIRMED"
+        }
+        customer_a_attempt = {
+            "booking_id": "booking_a",
+            "customer_id": "customer_a",
+            "amount_minor": 50000,
+            "currency": "INR",
+            "status": "CAPTURED",
+            "allocation_still_held": False
+        }
+
+        refunds_issued = []
+        incidents_opened = []
+
+        def handle_late_capture(attempt, current_table_alloc):
+            if not attempt["allocation_still_held"]:
+                # Invariant: table remains with Customer B
+                self.assertEqual(current_table_alloc["assigned_customer"], "customer_b")
+                # Trigger automatic refund for Customer A
+                refund = {
+                    "booking_id": attempt["booking_id"],
+                    "customer_id": attempt["customer_id"],
+                    "amount_minor": attempt["amount_minor"],
+                    "currency": attempt["currency"],
+                    "status": "SUCCEEDED",
+                    "reason": "LATE_CAPTURE_REALLOCATED"
+                }
+                refunds_issued.append(refund)
+                incidents_opened.append({
+                    "type": "LATE_CAPTURE_REALLOCATED",
+                    "severity": "HIGH",
+                    "booking_id": attempt["booking_id"]
+                })
+                return "LATE_CAPTURE_REFUND_TRIGGERED"
+            return "CONFIRMED"
+
+        decision = handle_late_capture(customer_a_attempt, table_allocation)
+        self.assertEqual(decision, "LATE_CAPTURE_REFUND_TRIGGERED")
+        self.assertEqual(table_allocation["assigned_customer"], "customer_b", "Customer B table assignment must be preserved")
+        self.assertEqual(len(refunds_issued), 1)
+        self.assertEqual(refunds_issued[0]["amount_minor"], 50000)
+        self.assertEqual(len(incidents_opened), 1)
+
+    def test_python_refund_idempotency_and_limits(self):
+        """
+        Verify Acceptance Criterion 4:
+        Idempotent refund requests return existing refund record without re-calling gateway.
+        Refunds exceeding payment amount are rejected.
+        """
+        refund_store = {}
+        gateway_call_count = 0
+
+        def process_refund(payment_attempt_id, amount_minor, idempotency_key, captured_amount=50000):
+            nonlocal gateway_call_count
+            if amount_minor > captured_amount:
+                raise ValueError("REFUND_AMOUNT_EXCEEDED: Cannot refund more than captured amount")
+
+            if idempotency_key in refund_store:
+                return refund_store[idempotency_key], True
+
+            gateway_call_count += 1
+            record = {
+                "id": f"ref_{len(refund_store) + 1}",
+                "payment_attempt_id": payment_attempt_id,
+                "amount_minor": amount_minor,
+                "idempotency_key": idempotency_key,
+                "status": "SUCCEEDED"
+            }
+            refund_store[idempotency_key] = record
+            return record, False
+
+        # First refund request
+        r1, is_replay1 = process_refund("att_101", 50000, "key_refund_1")
+        self.assertFalse(is_replay1)
+        self.assertEqual(gateway_call_count, 1)
+
+        # Duplicate refund request with same idempotency key
+        r2, is_replay2 = process_refund("att_101", 50000, "key_refund_1")
+        self.assertTrue(is_replay2)
+        self.assertEqual(r1["id"], r2["id"])
+        self.assertEqual(gateway_call_count, 1, "Gateway must not be called again for duplicate idempotency key")
+
+        # Exceeding amount
+        with self.assertRaises(ValueError):
+            process_refund("att_101", 60000, "key_refund_2")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

@@ -21,6 +21,7 @@ import {
 } from '@nestjs/swagger';
 import { Response, Request } from 'express';
 import { ReservationsService } from './reservations.service';
+import { PaymentsService } from '../payments/payments.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { CreateHoldRequestDto } from '@dine/contracts';
@@ -28,7 +29,10 @@ import { CreateHoldRequestDto } from '@dine/contracts';
 @ApiTags('Reservations')
 @Controller(['booking-holds', 'v1/holds'])
 export class BookingHoldsController {
-  constructor(private readonly reservationsService: ReservationsService) {}
+  constructor(
+    private readonly reservationsService: ReservationsService,
+    private readonly paymentsService: PaymentsService
+  ) {}
 
   @Post()
   @UseGuards(AuthGuard)
@@ -60,6 +64,47 @@ export class BookingHoldsController {
       idempotencyKey,
       dto,
       { requestId, ipAddress: req.ip }
+    );
+
+    if (isReplay) {
+      res.setHeader('X-Idempotent-Replay', 'true');
+    }
+    return res.status(HttpStatus.CREATED).json(result);
+  }
+
+  @Post(':id/payment-order')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create or reuse Razorpay test-mode payment order for hold',
+    description:
+      'POST /booking-holds/:id/payment-order per Blueprint §12.3 and EPIC-010. Derives amount strictly from server policy snapshot and maps attempt idempotently.',
+  })
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    required: false,
+    description: 'Unique client-generated idempotency key',
+  })
+  @ApiParam({ name: 'id', description: 'Hold UUID or Booking UUID' })
+  @ApiResponse({ status: 201, description: 'Payment order created or reused successfully' })
+  @ApiResponse({ status: 400, description: 'Validation error: free reservation requires no order' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden: customer cannot create order for another user hold' })
+  @ApiResponse({ status: 409, description: 'Booking already confirmed or idempotency conflict' })
+  @ApiResponse({ status: 410, description: 'Hold expired on server clock' })
+  async createPaymentOrderForHold(
+    @CurrentUser('userId') userId: string,
+    @Param('id') holdId: string,
+    @Headers('idempotency-key') idempotencyKey: string,
+    @Req() req: Request,
+    @Res() res: Response
+  ) {
+    const requestId = (req.headers['x-request-id'] as string) || undefined;
+    const { result, isReplay } = await this.paymentsService.createPaymentOrder(
+      userId,
+      holdId,
+      idempotencyKey,
+      { requestId }
     );
 
     if (isReplay) {

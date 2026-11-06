@@ -10,6 +10,7 @@ export async function bootstrap() {
   const logger = new StructuredLoggerService();
   const app = await NestFactory.create(AppModule, {
     logger,
+    rawBody: true,
   });
 
   const configService = app.get(ConfigService);

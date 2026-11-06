@@ -1366,6 +1366,132 @@
         ]
       }
     },
+    "/booking-holds/{id}/payment-order": {
+      "post": {
+        "operationId": "BookingHoldsController_createPaymentOrderForHold",
+        "summary": "Create or reuse Razorpay test-mode payment order for hold",
+        "description": "POST /booking-holds/:id/payment-order per Blueprint §12.3 and EPIC-010. Derives amount strictly from server policy snapshot and maps attempt idempotently.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID or Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique client-generated idempotency key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Payment order created or reused successfully"
+          },
+          "400": {
+            "description": "Validation error: free reservation requires no order"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot create order for another user hold"
+          },
+          "409": {
+            "description": "Booking already confirmed or idempotency conflict"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v1/holds/{id}/payment-order": {
+      "post": {
+        "operationId": "BookingHoldsController_createPaymentOrderForHold",
+        "summary": "Create or reuse Razorpay test-mode payment order for hold",
+        "description": "POST /booking-holds/:id/payment-order per Blueprint §12.3 and EPIC-010. Derives amount strictly from server policy snapshot and maps attempt idempotently.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID or Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique client-generated idempotency key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Payment order created or reused successfully"
+          },
+          "400": {
+            "description": "Validation error: free reservation requires no order"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot create order for another user hold"
+          },
+          "409": {
+            "description": "Booking already confirmed or idempotency conflict"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/booking-holds/{id}": {
       "get": {
         "operationId": "BookingHoldsController_getHold",
@@ -1538,6 +1664,7 @@
       "post": {
         "operationId": "PaymentsController_handleWebhook",
         "summary": "Razorpay webhook inbox endpoint",
+        "description": "Ingests verified raw gateway webhook events and deduplicates receipt.",
         "parameters": [
           {
             "name": "x-razorpay-signature",
@@ -1549,12 +1676,345 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": ""
+          "200": {
+            "description": "Webhook event received and acknowledged"
+          },
+          "401": {
+            "description": "Missing or invalid webhook signature"
           }
         },
         "tags": [
           "Payments"
+        ]
+      }
+    },
+    "/payments/orders": {
+      "post": {
+        "operationId": "PaymentsController_createPaymentOrder",
+        "summary": "Create or reuse Razorpay test-mode payment order",
+        "description": "Creates or reuses a server-owned payment order for an active deposit-required booking hold. Network calls execute outside database row locks with idempotent replay safety.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique client-generated idempotency key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Payment order created or reused successfully"
+          },
+          "400": {
+            "description": "Validation error: hold_id is required or free reservation"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot create order for another user hold"
+          },
+          "409": {
+            "description": "Booking already confirmed or idempotency conflict"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}/status": {
+      "get": {
+        "operationId": "PaymentsController_getPaymentStatus",
+        "summary": "Get payment status and review metadata",
+        "description": "Returns canonical payment attempt status, review window, reconciliation metadata, and associated refunds.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Payment attempt UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment status retrieved successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: caller does not own this payment or hold appropriate staff role"
+          },
+          "404": {
+            "description": "Payment attempt not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}/reconcile": {
+      "post": {
+        "operationId": "PaymentsController_reconcilePayment",
+        "summary": "Trigger payment reconciliation check",
+        "description": "Executes out-of-lock gateway status lookup followed by an atomic commit transaction to confirm booking or safely release allocation.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Payment attempt UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reconciliation executed successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Payment attempt not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/{id}/refund": {
+      "post": {
+        "operationId": "PaymentsController_issueRefund",
+        "summary": "Initiate idempotent refund",
+        "description": "Issues an idempotent refund with replay safety, amount validation, and immutable audit logging.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Payment attempt UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount_minor",
+                  "reason",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "amount_minor": {
+                    "type": "integer",
+                    "example": 50000
+                  },
+                  "reason": {
+                    "type": "string",
+                    "example": "Customer cancellation within free window"
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "example": "rfnd_req_12345"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Refund created or idempotent replay returned"
+          },
+          "400": {
+            "description": "Validation error (invalid amount or missing idempotency key)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Payment attempt not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/incidents": {
+      "get": {
+        "operationId": "PaymentsController_listIncidents",
+        "summary": "List payment review and refund escalation incidents",
+        "description": "Support visibility into review timeouts, late capture refund triggers, and gateway errors.",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by incident status (OPEN, INVESTIGATING, RESOLVED, DISMISSED)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "severity",
+            "required": false,
+            "in": "query",
+            "description": "Filter by severity (LOW, MEDIUM, HIGH, CRITICAL)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment incidents retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/incidents/{id}": {
+      "get": {
+        "operationId": "PaymentsController_getIncident",
+        "summary": "Get payment incident details",
+        "description": "Retrieves an individual payment incident record with audit context.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Payment incident UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment incident retrieved"
+          },
+          "404": {
+            "description": "Payment incident not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/incidents/{id}/resolve": {
+      "patch": {
+        "operationId": "PaymentsController_resolveIncident",
+        "summary": "Resolve payment incident",
+        "description": "Allows authorized staff or support to resolve or dismiss a payment escalation incident.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Payment incident UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incident resolved successfully"
+          },
+          "404": {
+            "description": "Incident not found"
+          }
+        },
+        "tags": [
+          "Payments"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
         ]
       }
     },

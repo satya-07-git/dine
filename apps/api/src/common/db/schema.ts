@@ -264,16 +264,24 @@ export const bookingStatusEvents = pgTable('booking_status_events', {
 });
 
 // ============================================================================
-// 5. Payment Gateway Tracking
+// 5. Payment Gateway Tracking & Reconciliation (EPIC-010 & EPIC-011)
 // ============================================================================
 export const paymentAttempts = pgTable('payment_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
   bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }).notNull(),
   gateway: varchar('gateway', { length: 50 }).default('RAZORPAY').notNull(),
   gatewayOrderId: varchar('gateway_order_id', { length: 100 }).notNull().unique(),
+  gatewayPaymentId: varchar('gateway_payment_id', { length: 100 }),
   amountMinor: integer('amount_minor').notNull(),
   currency: varchar('currency', { length: 3 }).default('INR').notNull(),
   status: text('status').notNull(),
+  reconciliationStatus: text('reconciliation_status').default('NONE').notNull(),
+  reviewStartedAt: timestamp('review_started_at', { withTimezone: true }),
+  reviewExpiresAt: timestamp('review_expires_at', { withTimezone: true }),
+  reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
+  lastReconciledAt: timestamp('last_reconciled_at', { withTimezone: true }),
+  retryCount: integer('retry_count').default(0).notNull(),
+  escalationReason: text('escalation_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -289,11 +297,34 @@ export const paymentEvents = pgTable('payment_events', {
 export const refunds = pgTable('refunds', {
   id: uuid('id').primaryKey().defaultRandom(),
   paymentAttemptId: uuid('payment_attempt_id').references(() => paymentAttempts.id, { onDelete: 'cascade' }).notNull(),
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }),
   gatewayRefundId: varchar('gateway_refund_id', { length: 100 }),
   amountMinor: integer('amount_minor').notNull(),
+  currency: varchar('currency', { length: 3 }).default('INR').notNull(),
   reason: text('reason'),
   status: varchar('status', { length: 50 }).notNull(),
+  idempotencyKey: varchar('idempotency_key', { length: 100 }).unique(),
+  metadata: jsonb('metadata').default({}).notNull(),
+  initiatedBy: uuid('initiated_by').references(() => profiles.id),
+  escalatedAt: timestamp('escalated_at', { withTimezone: true }),
+  escalationReason: text('escalation_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const paymentIncidents = pgTable('payment_incidents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }).notNull(),
+  paymentAttemptId: uuid('payment_attempt_id').references(() => paymentAttempts.id, { onDelete: 'set null' }),
+  refundId: uuid('refund_id').references(() => refunds.id, { onDelete: 'set null' }),
+  incidentType: text('incident_type').notNull(),
+  severity: text('severity').default('HIGH').notNull(),
+  status: text('status').default('OPEN').notNull(),
+  reason: text('reason').notNull(),
+  metadata: jsonb('metadata').default({}).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  resolvedBy: uuid('resolved_by').references(() => profiles.id),
 });
 
 // ============================================================================

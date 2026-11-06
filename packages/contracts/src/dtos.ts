@@ -2,7 +2,17 @@
  * Shared Request and Response DTO interfaces for Dine API.
  */
 
-import { BookingStatus, AllocationStatus, PolicyMode } from './enums';
+import {
+  BookingStatus,
+  AllocationStatus,
+  PolicyMode,
+  PaymentAttemptStatus,
+  RefundStatus,
+  PaymentReconciliationStatus,
+  PaymentIncidentType,
+  PaymentIncidentSeverity,
+  PaymentIncidentStatus,
+} from './enums';
 
 export interface HealthResponseDto {
   status: 'ok' | 'degraded' | 'error';
@@ -443,4 +453,159 @@ export interface BookingListQueryDto {
   status?: BookingStatus | string;
   limit?: number;
   offset?: number;
+}
+
+// ============================================================================
+// EPIC-010 Payment Orders & Verified Webhook Inbox DTOs
+// ============================================================================
+
+export interface CreatePaymentOrderRequestDto {
+  hold_id?: string;
+  booking_id?: string;
+  notes?: Record<string, string>;
+}
+
+export interface PaymentOrderResponseDto {
+  order_id: string;
+  payment_attempt_id: string;
+  booking_id: string;
+  hold_id?: string;
+  amount_minor: number;
+  currency: string;
+  key_id: string;
+  status: PaymentAttemptStatus | string;
+  customer?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  policy_mode: PolicyMode | string;
+  is_test_mode: boolean;
+  created_at: string;
+}
+
+export interface PaymentStatusResponseDto {
+  id: string;
+  booking_id: string;
+  gateway: string;
+  gateway_order_id: string;
+  amount_minor: number;
+  currency: string;
+  status: PaymentAttemptStatus | string;
+  booking_status?: BookingStatus | string;
+  allocation_status?: AllocationStatus | string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RazorpayWebhookResponseDto {
+  received: boolean;
+  event_id: string;
+  duplicate?: boolean;
+  action_taken: string;
+}
+
+// ============================================================================
+// EPIC-011 Payment Review, Reconciliation & Refunds DTOs
+// ============================================================================
+
+export interface RefundResponseDto {
+  id: string;
+  booking_id: string;
+  payment_attempt_id: string;
+  gateway_refund_id: string | null;
+  amount_minor: number;
+  currency: string;
+  status: RefundStatus | string;
+  reason: string | null;
+  idempotency_key: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateRefundRequestDto {
+  amount_minor: number;
+  reason: string;
+  idempotency_key: string;
+}
+
+export interface PaymentReconciliationDetailDto {
+  id: string;
+  booking_id: string;
+  gateway: string;
+  gateway_order_id: string;
+  gateway_payment_id: string | null;
+  amount_minor: number;
+  currency: string;
+  status: PaymentAttemptStatus | string;
+  reconciliation_status: PaymentReconciliationStatus | string;
+  review_started_at: string | null;
+  review_expires_at: string | null;
+  reconciled_at: string | null;
+  last_reconciled_at: string | null;
+  retry_count: number;
+  escalation_reason: string | null;
+  booking_status?: BookingStatus | string;
+  allocation_status?: AllocationStatus | string;
+  refunds: RefundResponseDto[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReconcilePaymentRequestDto {
+  force_provider_status?: 'CAPTURED' | 'FAILED' | 'UNKNOWN';
+}
+
+export interface ReconciliationResultDto {
+  payment_attempt_id: string;
+  booking_id: string;
+  previous_status: string;
+  new_status: string;
+  reconciliation_status: string;
+  decision:
+    | 'CONFIRMED'
+    | 'SAFE_RELEASE_EXPIRED'
+    | 'LATE_CAPTURE_REFUND_TRIGGERED'
+    | 'REVIEW_MAINTAINED'
+    | 'MANUAL_ESCALATION';
+  refund_issued?: boolean;
+  refund_id?: string;
+  incident_created?: boolean;
+  incident_id?: string;
+  message: string;
+}
+
+export interface PaymentIncidentDto {
+  id: string;
+  booking_id: string;
+  payment_attempt_id: string | null;
+  refund_id: string | null;
+  incident_type: PaymentIncidentType | string;
+  severity: PaymentIncidentSeverity | string;
+  status: PaymentIncidentStatus | string;
+  reason: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface PaymentIncidentListQueryDto {
+  status?: PaymentIncidentStatus | string;
+  severity?: PaymentIncidentSeverity | string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ResolvePaymentIncidentRequestDto {
+  resolution_status: 'RESOLVED' | 'DISMISSED';
+  reason: string;
+}
+
+export interface ResolvePaymentIncidentResponseDto {
+  success: boolean;
+  incident_id: string;
+  status: string;
+  resolved_at: string;
+  message: string;
 }
