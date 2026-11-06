@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../common/db/database.service';
 import { RestaurantPolicyService } from '../restaurants/restaurant-policy.service';
 import { RestaurantsService } from '../restaurants/restaurants.service';
+import { FloorPlansService } from '../floor-plans/floor-plans.service';
 import { specialClosures } from '../../common/db/schema';
 import { eq, asc } from 'drizzle-orm';
 
@@ -10,7 +11,8 @@ export class OwnerOperationsService {
   constructor(
     private readonly db: DatabaseService,
     private readonly policyService: RestaurantPolicyService,
-    private readonly restaurantsService: RestaurantsService
+    private readonly restaurantsService: RestaurantsService,
+    private readonly floorPlansService: FloorPlansService
   ) {}
 
   async getRestaurantBookings(restaurantId: string) {
@@ -76,5 +78,14 @@ export class OwnerOperationsService {
 
   async getPolicyHistory(restaurantId: string) {
     return this.restaurantsService.getPolicyHistory(restaurantId);
+  }
+
+  async updateFloorPlan(
+    restaurantId: string,
+    floorPlanDto: any,
+    actorId?: string,
+    requestId?: string
+  ) {
+    return this.floorPlansService.updateFloorPlan(restaurantId, floorPlanDto, actorId, requestId);
   }
 }

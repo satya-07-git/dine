@@ -68,11 +68,11 @@ export const restaurantCuisines = pgTable(
   'restaurant_cuisines',
   {
     restaurantId: uuid('restaurant_id')
-      .references(() => restaurants.id, { onDelete: 'cascade' })
-      .notNull(),
+      .references(() => restaurants.id, { onDelete: 'cascade' }
+      ).notNull(),
     cuisineId: uuid('cuisine_id')
-      .references(() => cuisines.id, { onDelete: 'cascade' })
-      .notNull(),
+      .references(() => cuisines.id, { onDelete: 'cascade' }
+      ).notNull(),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.restaurantId, table.cuisineId] }),
@@ -164,21 +164,25 @@ export const restaurantMedia = pgTable('restaurant_media', {
 });
 
 // ============================================================================
-// 3. Floor Plans & Tables
+// 3. Floor Plans & Tables (EPIC-006)
 // ============================================================================
 export const floors = pgTable('floors', {
   id: uuid('id').primaryKey().defaultRandom(),
   restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
   name: text('name').notNull(),
   floorNumber: integer('floor_number').default(1).notNull(),
+  currentVersion: integer('current_version').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const floorPlanVersions = pgTable('floor_plan_versions', {
   id: uuid('id').primaryKey().defaultRandom(),
   floorId: uuid('floor_id').references(() => floors.id, { onDelete: 'cascade' }).notNull(),
   versionNumber: integer('version_number').default(1).notNull(),
+  layoutSnapshot: jsonb('layout_snapshot').default({}).notNull(),
   svgLayoutUrl: text('svg_layout_url'),
+  createdBy: uuid('created_by').references(() => profiles.id),
   isActive: boolean('is_active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

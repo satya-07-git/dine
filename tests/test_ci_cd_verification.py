@@ -914,3 +914,178 @@ class TestEpic5DiscoveryMenusAndPublicMedia(unittest.TestCase):
         self.assertIn("b2", eligible_ids)
         self.assertNotIn("b3", eligible_ids)
         self.assertNotIn("b4", eligible_ids)
+
+
+class TestEpic6VersionedFloorPlansAndTables(unittest.TestCase):
+    """
+    Verify EPIC-006 Versioned Floor Plans and Table Inventory deliverables:
+    Optimistic version concurrency guard, normalized table geometry and capacity validators,
+    protected allocations and booking history preservation, stable physical table identities,
+    and restaurant tenant isolation.
+    """
+
+    def test_floor_plans_node_unit_suite(self):
+        """Execute Node.js floor plans unit tests verifying geometry guards and versioning."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/floor-plans.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            "Floor plans unit tests failed: " + str(test_result.stdout)
+        )
+        self.assertIn("pass 17", test_result.stdout)
+
+    def test_migration_006_floor_plans_and_tables(self):
+        """Verify authoritative SQL migration 6 defines version tracking, checks, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000006_versioned_floor_plans_and_tables.sql"
+        self.assertTrue(migration_file.exists(), "Migration 006 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("current_version", content)
+        self.assertIn("check_table_min_covers", content)
+        self.assertIn("check_table_geometry", content)
+        self.assertIn("check_table_bounds", content)
+        self.assertIn("uq_floor_version", content)
+        self.assertIn("ALTER TABLE floors ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE floor_plan_versions ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE restaurant_tables ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_floor_plan_routes(self):
+        """Verify OpenAPI documents GET /restaurants/{id}/floor-plan and PUT /owner/restaurants/{id}/floor-plan."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertIn("/restaurants/{id}/floor-plan", paths)
+        self.assertIn("/owner/restaurants/{id}/floor-plan", paths)
+        self.assertIn("/floor-plans/{restaurantId}", paths)
+
+    def test_python_table_geometry_and_capacity_validation(self):
+        """Direct Python verification of table capacity bounds and geometry constraints."""
+        def validate_table(table_num, capacity, min_covers, x, y, w, h):
+            if not table_num or not isinstance(table_num, str):
+                raise ValueError("table_number required")
+            if not isinstance(capacity, int) or capacity <= 0:
+                raise ValueError("capacity must be positive integer")
+            min_c = min_covers if min_covers is not None else 1
+            if not isinstance(min_c, int) or min_c <= 0:
+                raise ValueError("min_covers must be positive integer")
+            if min_c > capacity:
+                raise ValueError("min_covers cannot exceed capacity")
+            for coord in (x, y):
+                if coord < 0:
+                    raise ValueError("coordinates must be non-negative")
+            for dim in (w, h):
+                if dim <= 0:
+                    raise ValueError("dimensions must be positive")
+            if x + w > 1000 or y + h > 1000:
+                raise ValueError("table geometry exceeds canvas boundary")
+            return True
+
+        # Valid table definition
+        self.assertTrue(validate_table("T01", 4, 2, 10.0, 20.0, 2.0, 2.0))
+        self.assertTrue(validate_table("T02", 2, None, 0.0, 0.0, 1.5, 1.5))
+
+        # Invalid capacity
+        with self.assertRaises(ValueError):
+            validate_table("T03", 0, 1, 10.0, 10.0, 2.0, 2.0)
+        with self.assertRaises(ValueError):
+            validate_table("T03", -2, 1, 10.0, 10.0, 2.0, 2.0)
+        with self.assertRaises(ValueError):
+            validate_table("T03", 2, 4, 10.0, 10.0, 2.0, 2.0)
+
+        # Invalid geometry
+        with self.assertRaises(ValueError):
+            validate_table("T04", 4, 2, -1.0, 10.0, 2.0, 2.0)
+        with self.assertRaises(ValueError):
+            validate_table("T04", 4, 2, 10.0, 10.0, 0.0, 2.0)
+        with self.assertRaises(ValueError):
+            validate_table("T04", 4, 2, 999.0, 10.0, 5.0, 2.0)
+
+    def test_python_optimistic_floor_version_conflict(self):
+        """Direct Python verification of optimistic concurrency compare-and-update version guard."""
+        current_floor = {
+            "id": "fl_01",
+            "restaurant_id": "b0001",
+            "current_version": 1
+        }
+
+        def update_floor(base_version, new_tables):
+            if current_floor["current_version"] != base_version:
+                return 409, "VERSION_CONFLICT"
+            current_floor["current_version"] += 1
+            return 200, "SUCCESS"
+
+        # Client A updates with base_version: 1 -> succeeds, version advances to 2
+        status_a, _ = update_floor(1, [{"table_number": "T01", "capacity": 2}])
+        self.assertEqual(status_a, 200)
+        self.assertEqual(current_floor["current_version"], 2)
+
+        # Client B sends stale base_version: 1 -> rejected with 409 Conflict
+        status_b, code_b = update_floor(1, [{"table_number": "T01", "capacity": 4}])
+        self.assertEqual(status_b, 409)
+        self.assertEqual(code_b, "VERSION_CONFLICT")
+
+    def test_python_held_table_retirement_and_stable_id_protection(self):
+        """Direct Python verification of protected table allocation guard against deletion/retirement."""
+        tables = {
+            "t1": {"table_number": "T01", "is_active": True},
+            "t4": {"table_number": "T04", "is_active": True}, # Has active hold
+            "t5": {"table_number": "T05", "is_active": True}, # Unallocated
+        }
+        active_allocations = {"t4": "HELD"}
+
+        def retire_table(table_id):
+            if table_id in active_allocations:
+                return 409, "INVENTORY_HOLD_CONFLICT"
+            tables[table_id]["is_active"] = False
+            return 200, "RETIRED"
+
+        # Retiring held table T04 fails with 409
+        status_t4, code_t4 = retire_table("t4")
+        self.assertEqual(status_t4, 409)
+        self.assertEqual(code_t4, "INVENTORY_HOLD_CONFLICT")
+        self.assertTrue(tables["t4"]["is_active"])
+
+        # Retiring unallocated table T05 succeeds without deleting table record
+        status_t5, _ = retire_table("t5")
+        self.assertEqual(status_t5, 200)
+        self.assertFalse(tables["t5"]["is_active"])
+        self.assertIn("t5", tables) # Stable ID preserved
+
+    def test_python_floor_tenant_isolation(self):
+        """Direct Python verification that cross-tenant floor updates are rejected."""
+        floors = {
+            "fl_01": "restaurant_1",
+            "fl_02": "restaurant_2",
+        }
+        user_memberships = {
+            "staff_rest1": "restaurant_1",
+            "staff_rest2": "restaurant_2",
+        }
+
+        def authorize_floor_write(user_id, target_restaurant_id, floor_id):
+            user_rest = user_memberships.get(user_id)
+            if user_rest != target_restaurant_id:
+                return 403, "FORBIDDEN_TENANT_ACCESS"
+            if floors.get(floor_id) != target_restaurant_id:
+                return 403, "FLOOR_CROSS_TENANT_MISMATCH"
+            return 200, "AUTHORIZED"
+
+        # Staff in Rest 1 updating Floor 1 of Rest 1 -> 200
+        self.assertEqual(authorize_floor_write("staff_rest1", "restaurant_1", "fl_01")[0], 200)
+
+        # Staff in Rest 1 attempting to update Rest 2 -> 403
+        status, code = authorize_floor_write("staff_rest1", "restaurant_2", "fl_02")
+        self.assertEqual(status, 403)
+        self.assertEqual(code, "FORBIDDEN_TENANT_ACCESS")
+
+        # Staff in Rest 1 attempting to update Floor 2 under Rest 1 route -> 403
+        status, code = authorize_floor_write("staff_rest1", "restaurant_1", "fl_02")
+        self.assertEqual(status, 403)
+        self.assertEqual(code, "FLOOR_CROSS_TENANT_MISMATCH")

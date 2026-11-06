@@ -13,12 +13,7 @@ VALUES
 ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, auth_uid = EXCLUDED.auth_uid;
 
 -- 2. Restaurants (Multi-tenant venues with discovery, policy, and spatial attributes)
-INSERT INTO restaurants (
-    id, name, slug, description, timezone, policy_mode,
-    deposit_amount_minor, deposit_currency, default_duration_min, turnover_buffer_min,
-    policy_version, min_party_size, max_party_size, lead_time_min_minutes, lead_time_max_days,
-    latitude, longitude, is_published, status, price_tier, cover_image_url
-)
+INSERT INTO restaurants (\n    id, name, slug, description, timezone, policy_mode,\n    deposit_amount_minor, deposit_currency, default_duration_min, turnover_buffer_min,\n    policy_version, min_party_size, max_party_size, lead_time_min_minutes, lead_time_max_days,\n    latitude, longitude, is_published, status, price_tier, cover_image_url\n)
 VALUES 
     (
         'b0000000-0000-0000-0000-000000000001', 'The Royal Dine Bistro', 'the-royal-dine-bistro',
@@ -148,12 +143,12 @@ VALUES
     )
 ON CONFLICT (id) DO NOTHING;
 
--- 8. Floors & Floor Plan Versions
-INSERT INTO floors (id, restaurant_id, name, floor_number)
+-- 8. Floors & Floor Plan Versions (EPIC-006 Versioned Inventory)
+INSERT INTO floors (id, restaurant_id, name, floor_number, current_version)
 VALUES 
-    ('d0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Ground Main Dining Room', 1),
-    ('d0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'Grand Banquet Floor', 1)
-ON CONFLICT DO NOTHING;
+    ('d0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Ground Main Dining Room', 1, 1),
+    ('d0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'Grand Banquet Floor', 1, 1)
+ON CONFLICT (id) DO UPDATE SET current_version = EXCLUDED.current_version;
 
 INSERT INTO floor_plan_versions (id, floor_id, version_number, svg_layout_url, is_active)
 VALUES 
@@ -172,10 +167,15 @@ VALUES
     ('f0000000-0000-0000-0000-000000000006', 'd0000000-0000-0000-0000-000000000002', 'T01', 4, 2, 'MAIN', 10.0, 10.0, 3.0, 3.0, true)
 ON CONFLICT (floor_id, table_number) DO UPDATE SET capacity = EXCLUDED.capacity;
 
--- 10. Sample Bookings & Waitlist for Customer Ownership Testing
+-- 10. Sample Bookings, Table Allocations & Waitlist
 INSERT INTO bookings (id, user_id, restaurant_id, party_size, requested_start, dining_period, status, policy_snapshot)
 VALUES 
     ('10000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 2, '2026-11-10 19:00:00+00', tstzrange('2026-11-10 19:00:00+00', '2026-11-10 20:45:00+00'), 'CONFIRMED', '{"policy_mode":"FREE_RESERVATION","deposit_amount_minor":0,"policy_version":1}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO table_allocations (id, table_id, booking_id, dining_period, status)
+VALUES
+    ('30000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', tstzrange('2026-11-10 19:00:00+00', '2026-11-10 20:45:00+00'), 'CONFIRMED')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO waitlist_entries (id, restaurant_id, user_id, party_size, requested_start, status)

@@ -516,15 +516,17 @@
         ]
       }
     },
-    "/floor-plans/{restaurantId}": {
+    "/restaurants/{id}/floor-plan": {
       "get": {
-        "operationId": "FloorPlansController_getFloorPlan",
+        "operationId": "FloorPlansController_getRestaurantFloorPlan",
         "summary": "Get active floor plan layout for restaurant",
+        "description": "Returns versioned static floor geometry, capacities, and stable table IDs without mutable availability flags.",
         "parameters": [
           {
-            "name": "restaurantId",
+            "name": "id",
             "required": true,
             "in": "path",
+            "description": "Restaurant UUID",
             "schema": {
               "type": "string"
             }
@@ -532,7 +534,39 @@
         ],
         "responses": {
           "200": {
-            "description": ""
+            "description": "Active floor plan layout and tables"
+          },
+          "404": {
+            "description": "Restaurant not found"
+          }
+        },
+        "tags": [
+          "Floor Plans"
+        ]
+      }
+    },
+    "/floor-plans/{restaurantId}": {
+      "get": {
+        "operationId": "FloorPlansController_getFloorPlan",
+        "summary": "Get active floor plan layout for restaurant (alias)",
+        "description": "Alias endpoint for retrieving active versioned floor plan layout.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active floor plan layout and tables"
+          },
+          "404": {
+            "description": "Restaurant not found"
           }
         },
         "tags": [
@@ -874,6 +908,45 @@
         "responses": {
           "200": {
             "description": "List of historical policy versions"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/floor-plan": {
+      "put": {
+        "operationId": "OwnerOperationsController_updateFloorPlan",
+        "summary": "Update restaurant floor plan with optimistic version guard",
+        "description": "Updates floor layout and tables with optimistic version lock. Rejects stale versions (409 Conflict), invalid geometry/capacities (400 Bad Request), and attempts to retire tables with active holds or confirmed reservations (409 Conflict).",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Floor plan updated successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid table geometry or capacity"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks OWNER or MANAGER membership in this restaurant"
+          },
+          "409": {
+            "description": "Conflict: Stale floor plan version or table has active bookings/holds"
           }
         },
         "tags": [

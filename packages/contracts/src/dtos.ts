@@ -201,3 +201,67 @@ export interface RestaurantMenuDto {
   categories: MenuCategoryDto[];
   media: RestaurantMediaDto[];
 }
+
+// ============================================================================
+// EPIC-006 Versioned Floor Plans & Table Inventory DTOs
+// ============================================================================
+
+export interface RestaurantTableDto {
+  id: string;
+  floor_id: string;
+  table_number: string;
+  capacity: number;
+  min_covers: number;
+  zone: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  is_active: boolean;
+  created_at?: string;
+}
+
+export interface FloorDto {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  floor_number: number;
+  version_number: number;
+  svg_layout_url?: string | null;
+  tables: RestaurantTableDto[];
+  created_at?: string;
+}
+
+export interface RestaurantFloorPlanDto {
+  restaurant_id: string;
+  floors: FloorDto[];
+}
+
+export interface UpdateFloorPlanTableDto {
+  id?: string;
+  table_number: string;
+  capacity: number;
+  min_covers?: number;
+  zone?: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  is_active?: boolean;
+}
+
+export interface UpdateFloorPlanRequestDto {
+  floor_id: string;
+  base_version: number;
+  name?: string;
+  svg_layout_url?: string | null;
+  tables: UpdateFloorPlanTableDto[];
+}
+
+export interface UpdateFloorPlanResponseDto {
+  success: boolean;
+  floor_id: string;
+  version_number: number;
+  tables_count: number;
+  message: string;
+}

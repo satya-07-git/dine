@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Patch,
   Body,
   Param,
@@ -94,6 +95,29 @@ export class OwnerOperationsController {
   @ApiResponse({ status: 200, description: 'List of historical policy versions' })
   async getPolicyHistory(@Param('id') id: string) {
     return this.ownerOpsService.getPolicyHistory(id);
+  }
+
+  @Put('restaurants/:id/floor-plan')
+  @UseGuards(AuthGuard, TenantGuard)
+  @RequireRestaurantRoles('OWNER', 'MANAGER')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update restaurant floor plan with optimistic version guard',
+    description:
+      'Updates floor layout and tables with optimistic version lock. Rejects stale versions (409 Conflict), invalid geometry/capacities (400 Bad Request), and attempts to retire tables with active holds or confirmed reservations (409 Conflict).',
+  })
+  @ApiResponse({ status: 200, description: 'Floor plan updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad Request: Invalid table geometry or capacity' })
+  @ApiResponse({ status: 403, description: 'Forbidden: Caller lacks OWNER or MANAGER membership in this restaurant' })
+  @ApiResponse({ status: 409, description: 'Conflict: Stale floor plan version or table has active bookings/holds' })
+  async updateFloorPlan(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: any
+  ) {
+    const requestId = req.headers ? req.headers['x-request-id'] : undefined;
+    return this.ownerOpsService.updateFloorPlan(id, body, user?.userId, requestId);
   }
 
   @Post('walk-ins')
