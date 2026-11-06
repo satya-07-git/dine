@@ -183,6 +183,12 @@ VALUES
     ('20000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 4, '2026-11-10 20:00:00+00', 'WAITING')
 ON CONFLICT (id) DO NOTHING;
 
+-- 10.2 Booking Status Events (EPIC-009 Sequenced Status History)
+INSERT INTO booking_status_events (id, booking_id, from_status, to_status, actor_id, actor_role, reason, sequence_number)
+VALUES
+    ('80000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'HOLD_ACTIVE', 'CONFIRMED', 'a0000000-0000-0000-0000-000000000002', 'CUSTOMER', 'Initial free reservation confirmation', 1)
+ON CONFLICT (id) DO NOTHING;
+
 -- 10.1 Table Blocks (EPIC-007 Physical Table Maintenance & Protection)
 INSERT INTO table_blocks (id, table_id, block_period, reason)
 VALUES

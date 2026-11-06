@@ -120,6 +120,32 @@ export class OwnerOperationsController {
     return this.ownerOpsService.updateFloorPlan(id, body, user?.userId, requestId);
   }
 
+  @Patch('bookings/:id/status')
+  @UseGuards(AuthGuard, TenantGuard)
+  @RequireRestaurantRoles('OWNER', 'MANAGER', 'HOST')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update booking service status with optimistic version check (staff only)',
+    description:
+      'Guarded staff status transition (READY, SEATED, COMPLETED, NO_SHOW, CANCELLED). Verifies staff membership and rejects stale versions with 409 Conflict.',
+  })
+  @ApiResponse({ status: 200, description: 'Booking status updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or invalid parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden: staff lacks role or restaurant membership' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  @ApiResponse({ status: 409, description: 'Conflict: Stale booking version (VERSION_CONFLICT)' })
+  @ApiResponse({ status: 422, description: 'Unprocessable: Invalid state machine transition' })
+  async updateBookingStatus(
+    @Param('id') id: string,
+    @Body() body: any,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: any
+  ) {
+    const requestId = req.headers ? req.headers['x-request-id'] : undefined;
+    return this.ownerOpsService.updateBookingStatus(id, body, user?.userId, requestId);
+  }
+
   @Post('walk-ins')
   @UseGuards(AuthGuard, TenantGuard)
   @RequireRestaurantRoles('OWNER', 'MANAGER', 'HOST')

@@ -742,16 +742,213 @@
         ]
       }
     },
-    "/reservations/{id}": {
+    "/bookings": {
       "get": {
-        "operationId": "ReservationsController_getReservation",
+        "operationId": "ReservationsController_listCustomerBookings",
+        "summary": "List authenticated customer bookings",
+        "description": "Retrieves a paginated list of bookings belonging to the authenticated customer.",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by booking status",
+            "schema": {
+              "enum": [
+                "HOLD_ACTIVE",
+                "PAYMENT_PENDING",
+                "PAYMENT_REVIEW",
+                "CONFIRMED",
+                "READY",
+                "SEATED",
+                "COMPLETED",
+                "CANCELLED",
+                "NO_SHOW",
+                "EXPIRED",
+                "PAYMENT_FAILED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page limit (default 20, max 100)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Page offset (default 0)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer bookings retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations": {
+      "get": {
+        "operationId": "ReservationsController_listCustomerBookings",
+        "summary": "List authenticated customer bookings",
+        "description": "Retrieves a paginated list of bookings belonging to the authenticated customer.",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by booking status",
+            "schema": {
+              "enum": [
+                "HOLD_ACTIVE",
+                "PAYMENT_PENDING",
+                "PAYMENT_REVIEW",
+                "CONFIRMED",
+                "READY",
+                "SEATED",
+                "COMPLETED",
+                "CANCELLED",
+                "NO_SHOW",
+                "EXPIRED",
+                "PAYMENT_FAILED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page limit (default 20, max 100)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "description": "Page offset (default 0)",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer bookings retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bookings/free": {
+      "post": {
+        "operationId": "ReservationsController_createFreeBooking",
+        "summary": "Create immediate confirmed free reservation",
+        "description": "Creates a confirmed reservation and physical table allocation for restaurants operating in FREE_RESERVATION mode. Protected by atomic row locks and GiST exclusion.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Free reservation created and confirmed successfully"
+          },
+          "400": {
+            "description": "Validation error: invalid party size or missing parameters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflict: Table unavailable or capacity mismatch"
+          },
+          "422": {
+            "description": "Unprocessable: Restaurant requires a deposit"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations/free": {
+      "post": {
+        "operationId": "ReservationsController_createFreeBooking",
+        "summary": "Create immediate confirmed free reservation",
+        "description": "Creates a confirmed reservation and physical table allocation for restaurants operating in FREE_RESERVATION mode. Protected by atomic row locks and GiST exclusion.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Free reservation created and confirmed successfully"
+          },
+          "400": {
+            "description": "Validation error: invalid party size or missing parameters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Conflict: Table unavailable or capacity mismatch"
+          },
+          "422": {
+            "description": "Unprocessable: Restaurant requires a deposit"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}": {
+      "get": {
+        "operationId": "ReservationsController_getBooking",
         "summary": "Get reservation details scoped by customer ownership",
-        "description": "Enforces that a customer cannot access another customer booking",
+        "description": "Enforces that a customer cannot access another customer booking (IDOR protection)",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "Booking UUID",
             "schema": {
               "type": "string"
             }
@@ -766,6 +963,565 @@
           },
           "403": {
             "description": "Forbidden: customer cannot access another booking"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}": {
+      "get": {
+        "operationId": "ReservationsController_getBooking",
+        "summary": "Get reservation details scoped by customer ownership",
+        "description": "Enforces that a customer cannot access another customer booking (IDOR protection)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking details retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another booking"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/confirm": {
+      "post": {
+        "operationId": "ReservationsController_confirmFreeHold",
+        "summary": "Confirm existing active hold for a free reservation",
+        "description": "Advances booking from HOLD_ACTIVE to CONFIRMED for free reservation venues. Verifies hold validity and safe expiry.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking confirmed successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot confirm another customer booking"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          },
+          "422": {
+            "description": "Invalid state transition or deposit required"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/confirm": {
+      "post": {
+        "operationId": "ReservationsController_confirmFreeHold",
+        "summary": "Confirm existing active hold for a free reservation",
+        "description": "Advances booking from HOLD_ACTIVE to CONFIRMED for free reservation venues. Verifies hold validity and safe expiry.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking confirmed successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot confirm another customer booking"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          },
+          "422": {
+            "description": "Invalid state transition or deposit required"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/cancel": {
+      "post": {
+        "operationId": "ReservationsController_cancelBooking",
+        "summary": "Cancel reservation with policy check",
+        "description": "Cancels an active hold or confirmed booking, releases physical table allocation from GiST exclusion, and appends sequenced status event.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking cancelled successfully"
+          },
+          "400": {
+            "description": "Validation error: cannot cancel past booking"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot cancel another customer booking"
+          },
+          "422": {
+            "description": "Invalid state transition: booking in terminal status"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/cancel": {
+      "post": {
+        "operationId": "ReservationsController_cancelBooking",
+        "summary": "Cancel reservation with policy check",
+        "description": "Cancels an active hold or confirmed booking, releases physical table allocation from GiST exclusion, and appends sequenced status event.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking cancelled successfully"
+          },
+          "400": {
+            "description": "Validation error: cannot cancel past booking"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot cancel another customer booking"
+          },
+          "422": {
+            "description": "Invalid state transition: booking in terminal status"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/bookings/{id}/events": {
+      "get": {
+        "operationId": "ReservationsController_getBookingEvents",
+        "summary": "Get append-only sequenced status history events for booking",
+        "description": "Retrieves chronological state transitions, actors, reasons, and sequence numbers.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sequenced booking status events retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: cannot view events of another customer booking"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/reservations/{id}/events": {
+      "get": {
+        "operationId": "ReservationsController_getBookingEvents",
+        "summary": "Get append-only sequenced status history events for booking",
+        "description": "Retrieves chronological state transitions, actors, reasons, and sequence numbers.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sequenced booking status events retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: cannot view events of another customer booking"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/booking-holds": {
+      "post": {
+        "operationId": "BookingHoldsController_createHold",
+        "summary": "Create atomic booking hold with idempotency protection",
+        "description": "Acquires table row lock, rechecks eligibility and safe-expiry, and places an atomic hold protected by GiST range exclusion. Returns hold_id, status, expires_at, server_time, and deposit.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique client-generated idempotency key (UUID or unique string)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Hold created successfully or idempotent replay"
+          },
+          "400": {
+            "description": "Missing Idempotency-Key or invalid parameters"
+          },
+          "401": {
+            "description": "Missing, invalid, or expired Bearer JWT"
+          },
+          "409": {
+            "description": "Table unavailable (competing hold) or idempotency conflict"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v1/holds": {
+      "post": {
+        "operationId": "BookingHoldsController_createHold",
+        "summary": "Create atomic booking hold with idempotency protection",
+        "description": "Acquires table row lock, rechecks eligibility and safe-expiry, and places an atomic hold protected by GiST range exclusion. Returns hold_id, status, expires_at, server_time, and deposit.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Unique client-generated idempotency key (UUID or unique string)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Hold created successfully or idempotent replay"
+          },
+          "400": {
+            "description": "Missing Idempotency-Key or invalid parameters"
+          },
+          "401": {
+            "description": "Missing, invalid, or expired Bearer JWT"
+          },
+          "409": {
+            "description": "Table unavailable (competing hold) or idempotency conflict"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/booking-holds/{id}": {
+      "get": {
+        "operationId": "BookingHoldsController_getHold",
+        "summary": "Get booking hold details scoped by customer ownership",
+        "description": "Fetches hold details. Enforces customer IDOR ownership and returns 410 HOLD_EXPIRED if the hold has elapsed.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hold details retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another hold"
+          },
+          "404": {
+            "description": "Hold not found"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "BookingHoldsController_cancelHold",
+        "summary": "Cancel active booking hold",
+        "description": "Cancels hold, transitions allocation out of protected status, and emits outbox/audit records.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hold cancelled successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot cancel another hold"
+          },
+          "404": {
+            "description": "Hold not found"
+          },
+          "410": {
+            "description": "Hold has already expired"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v1/holds/{id}": {
+      "get": {
+        "operationId": "BookingHoldsController_getHold",
+        "summary": "Get booking hold details scoped by customer ownership",
+        "description": "Fetches hold details. Enforces customer IDOR ownership and returns 410 HOLD_EXPIRED if the hold has elapsed.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hold details retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another hold"
+          },
+          "404": {
+            "description": "Hold not found"
+          },
+          "410": {
+            "description": "Hold expired on server clock"
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "BookingHoldsController_cancelHold",
+        "summary": "Cancel active booking hold",
+        "description": "Cancels hold, transitions allocation out of protected status, and emits outbox/audit records.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Hold UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hold cancelled successfully"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot cancel another hold"
+          },
+          "404": {
+            "description": "Hold not found"
+          },
+          "410": {
+            "description": "Hold has already expired"
           }
         },
         "tags": [
@@ -1075,6 +1831,54 @@
           },
           "409": {
             "description": "Conflict: Stale floor plan version or table has active bookings/holds"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/bookings/{id}/status": {
+      "patch": {
+        "operationId": "OwnerOperationsController_updateBookingStatus",
+        "summary": "Update booking service status with optimistic version check (staff only)",
+        "description": "Guarded staff status transition (READY, SEATED, COMPLETED, NO_SHOW, CANCELLED). Verifies staff membership and rejects stale versions with 409 Conflict.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking status updated successfully"
+          },
+          "400": {
+            "description": "Bad request or invalid parameters"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: staff lacks role or restaurant membership"
+          },
+          "404": {
+            "description": "Booking not found"
+          },
+          "409": {
+            "description": "Conflict: Stale booking version (VERSION_CONFLICT)"
+          },
+          "422": {
+            "description": "Unprocessable: Invalid state machine transition"
           }
         },
         "tags": [

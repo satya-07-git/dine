@@ -226,8 +226,15 @@ export const bookings = pgTable('bookings', {
   restaurantId: uuid('restaurant_id').references(() => restaurants.id).notNull(),
   partySize: integer('party_size').notNull(),
   requestedStart: timestamp('requested_start', { withTimezone: true }).notNull(),
+  diningPeriod: tstzrange('dining_period'),
   status: text('status').notNull(),
+  version: integer('version').default(1).notNull(),
   policySnapshot: jsonb('policy_snapshot').default({}).notNull(),
+  checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
+  seatedAt: timestamp('seated_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  cancellationReason: text('cancellation_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -248,7 +255,11 @@ export const bookingStatusEvents = pgTable('booking_status_events', {
   fromStatus: text('from_status'),
   toStatus: text('to_status').notNull(),
   actorId: uuid('actor_id'),
+  actorRole: text('actor_role'),
   reason: text('reason'),
+  sequenceNumber: integer('sequence_number').default(1).notNull(),
+  requestId: uuid('request_id'),
+  metadata: jsonb('metadata').default({}).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

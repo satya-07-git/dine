@@ -342,3 +342,105 @@ export interface SingleTableAvailabilityResponseDto {
   interval?: DiningIntervalDto | null;
   eligible: boolean;
 }
+
+// ============================================================================
+// EPIC-008 Atomic Holds, Idempotency & Safe Expiry DTOs
+// ============================================================================
+
+export interface DepositSummaryDto {
+  policy_mode: PolicyMode | string;
+  amount_minor: number;
+  currency: string;
+}
+
+export interface BookingHoldResponseDto {
+  hold_id: string;
+  booking_id: string;
+  table_id: string;
+  restaurant_id: string;
+  status: AllocationStatus | string;
+  dining_period: {
+    start: string;
+    end: string;
+  };
+  expires_at: string;
+  server_time: string;
+  deposit: DepositSummaryDto;
+}
+
+export interface CancelHoldResponseDto {
+  message: string;
+  hold_id: string;
+  status: string;
+}
+
+// ============================================================================
+// EPIC-009 Reservation Lifecycle & Service Status DTOs
+// ============================================================================
+
+export interface CreateFreeBookingRequestDto {
+  restaurant_id: string;
+  table_id: string;
+  party_size: number;
+  requested_start: string;
+  special_requests?: string;
+}
+
+export interface CancelBookingRequestDto {
+  reason?: string;
+}
+
+export interface UpdateBookingStatusRequestDto {
+  status: BookingStatus;
+  expected_version?: number;
+  reason?: string;
+}
+
+export interface BookingStatusEventDto {
+  id: string;
+  booking_id: string;
+  from_status: string | null;
+  to_status: string;
+  actor_id?: string | null;
+  actor_role?: string | null;
+  reason?: string | null;
+  sequence_number: number;
+  request_id?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface BookingLifecycleDetailDto {
+  id: string;
+  user_id: string;
+  restaurant_id: string;
+  restaurant_name?: string;
+  table_id?: string;
+  table_number?: string;
+  floor_id?: string;
+  floor_name?: string;
+  party_size: number;
+  requested_start: string;
+  dining_period?: {
+    start: string;
+    end: string;
+  };
+  status: BookingStatus | string;
+  allocation_status?: AllocationStatus | string;
+  version: number;
+  policy_snapshot: Record<string, unknown>;
+  checked_in_at?: string | null;
+  seated_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  events?: BookingStatusEventDto[];
+}
+
+export interface BookingListQueryDto {
+  status?: BookingStatus | string;
+  limit?: number;
+  offset?: number;
+}
