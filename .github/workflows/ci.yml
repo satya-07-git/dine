@@ -1,0 +1,39 @@
+name: Dine CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  lint-and-validate:
+    name: Lint, Architecture Contracts & CI/CD Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Rebuild and validate dashboard
+        run: |
+          python3 project-delivery-kit/tasks/build_dashboard.py
+
+      - name: Run CI/CD verification test suite
+        run: |
+          python3 -m unittest discover -s tests -p "test_*.py" -v
+
+      - name: Execute CI shell runner
+        run: |
+          chmod +x scripts/ci.sh
+          ./scripts/ci.sh
