@@ -2,7 +2,7 @@
 """
 Comprehensive CI/CD Verification Test Suite for Dine Backend Platform.
 Verifies Architecture Contracts, ADRs, Policy Registers, State Transitions,
-Concurrency Invariants, and Dashboard Integrity.
+Concurrency Invariants, Repository & Database Foundation (EPIC-002), and Dashboard Integrity.
 """
 
 import os
@@ -308,6 +308,162 @@ class TestCiWorkflowConfiguration(unittest.TestCase):
         self.assertIn("name:", content)
         self.assertIn("jobs:", content)
         self.assertIn("unittest discover", content)
+
+
+class TestEpic2FoundationDeliverables(unittest.TestCase):
+    """
+    Verify EPIC-002 Foundation deliverables:
+    Repository layout, NestJS modules, environment validation, authoritative SQL migrations,
+    Drizzle schema alignment, OpenAPI generation, health/readiness endpoints, and recovery playbook.
+    """
+
+    def test_apps_api_and_modules_structure(self):
+        """Verify presence of apps/api, packages/contracts, and all 11 modular monolith modules."""
+        apps_api = REPO_ROOT / "apps" / "api" / "src"
+        self.assertTrue(apps_api.exists(), "apps/api/src must exist")
+
+        # Common infrastructure
+        for common_mod in ["config", "db", "errors", "logging", "health", "auth"]:
+            path = apps_api / "common" / common_mod
+            self.assertTrue(path.exists(), f"common/{common_mod} must exist")
+
+        # 11 Modular monolith feature modules from Blueprint §4 / REFERENCE-architecture
+        expected_modules = [
+            "identity", "restaurants", "discovery", "floor-plans",
+            "availability", "reservations", "payments", "waitlist",
+            "booking-status", "notifications", "owner-operations"
+        ]
+        for mod in expected_modules:
+            mod_path = apps_api / "modules" / mod
+            self.assertTrue(mod_path.exists(), f"Feature module {mod} must exist")
+            self.assertTrue((mod_path / f"{mod}.module.ts").exists(), f"{mod}.module.ts must exist")
+
+        # Shared contracts
+        contracts_src = REPO_ROOT / "packages" / "contracts" / "src"
+        self.assertTrue(contracts_src.exists(), "packages/contracts/src must exist")
+        self.assertTrue((contracts_src / "index.ts").exists(), "contracts index.ts must exist")
+        self.assertTrue((contracts_src / "enums.ts").exists(), "contracts enums.ts must exist")
+
+    def test_env_example_and_no_secrets(self):
+        """Verify .env.example exists, specifies required variables, and has no active secrets."""
+        env_example = REPO_ROOT / ".env.example"
+        self.assertTrue(env_example.exists(), ".env.example must exist")
+        content = env_example.read_text(encoding="utf-8")
+
+        for key in ["NODE_ENV", "PORT", "DATABASE_URL", "SUPABASE_JWT_SECRET", "RAZORPAY_KEY_ID"]:
+            self.assertIn(f"{key}=", content, f".env.example missing {key}")
+
+        # Ensure no live production tokens
+        self.assertIn("placeholder", content)
+
+    def test_sql_migrations_and_runner(self):
+        """Verify authoritative SQL migrations, GiST overlap constraint, and migration runner."""
+        migrations_dir = REPO_ROOT / "supabase" / "migrations"
+        self.assertTrue(migrations_dir.exists(), "supabase/migrations must exist")
+
+        migration_files = sorted(migrations_dir.glob("*.sql"))
+        self.assertGreaterEqual(len(migration_files), 2, "Must have at least 2 migrations")
+
+        # Check migration 1
+        m1 = migration_files[0].read_text(encoding="utf-8")
+        self.assertIn("btree_gist", m1)
+        self.assertIn("uuid-ossp", m1)
+
+        # Check migration 2
+        m2 = migration_files[1].read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS table_allocations", m2)
+        self.assertIn("no_protected_table_overlap", m2)
+        self.assertIn("schema_migrations", m2)
+
+        # Check migration runner in check mode
+        migrate_script = REPO_ROOT / "scripts" / "migrate.js"
+        self.assertTrue(migrate_script.exists(), "scripts/migrate.js must exist")
+        result = subprocess.run(
+            ["node", str(migrate_script), "--check"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0, f"Migrate check failed: {result.stderr}")
+        self.assertIn("Check / Dry-run mode completed successfully", result.stdout)
+
+    def test_synthetic_seed_and_runner(self):
+        """Verify synthetic seed SQL and seed runner."""
+        seed_sql = REPO_ROOT / "supabase" / "seed.sql"
+        self.assertTrue(seed_sql.exists(), "supabase/seed.sql must exist")
+        content = seed_sql.read_text(encoding="utf-8")
+
+        self.assertIn("The Royal Dine Bistro", content)
+        self.assertIn("T04", content)
+
+        seed_script = REPO_ROOT / "scripts" / "seed.js"
+        self.assertTrue(seed_script.exists(), "scripts/seed.js must exist")
+        result = subprocess.run(
+            ["node", str(seed_script), "--check"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(result.returncode, 0, f"Seed check failed: {result.stderr}")
+
+    def test_drizzle_schema_and_transaction_helpers(self):
+        """Verify Drizzle schema aligns with migrations and transaction helper exists."""
+        drizzle_schema = REPO_ROOT / "apps" / "api" / "src" / "common" / "db" / "schema.ts"
+        self.assertTrue(drizzle_schema.exists(), "Drizzle schema.ts must exist")
+        content = drizzle_schema.read_text(encoding="utf-8")
+
+        self.assertIn("export const bookings =", content)
+        self.assertIn("export const tableAllocations =", content)
+        self.assertIn("export const restaurantTables =", content)
+        self.assertIn("export const idempotencyRecords =", content)
+
+        tx_helper = REPO_ROOT / "apps" / "api" / "src" / "common" / "db" / "transaction.ts"
+        self.assertTrue(tx_helper.exists(), "transaction.ts must exist")
+
+    def test_openapi_spec_completeness(self):
+        """Verify generated OpenAPI specification exists and documents core endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        self.assertEqual(spec["info"]["title"], "Dine Backend API")
+        paths = spec["paths"]
+        self.assertIn("/health/live", paths)
+        self.assertIn("/health/ready", paths)
+        self.assertIn("/v1/health", paths)
+        self.assertIn("/reservations/{id}", paths)
+        self.assertIn("/availability", paths)
+        self.assertIn("/payments/webhooks/razorpay", paths)
+
+    def test_deployment_and_recovery_guide(self):
+        """Verify deployment and recovery playbook exists and covers PITR and connection pooling."""
+        guide = DOCS_DIR / "architecture" / "deployment-and-recovery.md"
+        self.assertTrue(guide.exists(), "deployment-and-recovery.md must exist")
+        content = guide.read_text(encoding="utf-8")
+
+        self.assertIn("Point-In-Time Recovery (PITR)", content)
+        self.assertIn("DATABASE_POOL_MAX", content)
+        self.assertIn("npm run migrate", content)
+
+    def test_clean_compilation_and_unit_checks(self):
+        """Verify clean TypeScript build and Node unit tests execution."""
+        # 1. npm run build
+        build_result = subprocess.run(
+            ["npm", "run", "build"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(build_result.returncode, 0, f"Build failed: {build_result.stderr}")
+
+        # 2. Node unit tests
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/foundation.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(test_result.returncode, 0, f"Node unit tests failed: {test_result.stderr}")
 
 
 if __name__ == "__main__":

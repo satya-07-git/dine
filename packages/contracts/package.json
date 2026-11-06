@@ -1,0 +1,14 @@
+{
+  "name": "@dine/contracts",
+  "version": "1.0.0",
+  "description": "Shared DTOs, Enums, Interfaces, and API contracts for Dine Backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

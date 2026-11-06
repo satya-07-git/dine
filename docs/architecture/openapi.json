@@ -1,0 +1,382 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health/live": {
+      "get": {
+        "operationId": "HealthController_getLiveness",
+        "summary": "Liveness probe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Application process is alive"
+          }
+        },
+        "tags": [
+          "Health & Readiness"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "HealthController_getReadiness",
+        "summary": "Readiness probe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Application is ready to receive traffic"
+          },
+          "503": {
+            "description": "Application dependencies unavailable"
+          }
+        },
+        "tags": [
+          "Health & Readiness"
+        ]
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "HealthController_getApiHealth",
+        "summary": "API Versioned Health Check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "API health and dependency metrics"
+          }
+        },
+        "tags": [
+          "Health & Readiness"
+        ]
+      }
+    },
+    "/identity/profile/{id}": {
+      "get": {
+        "operationId": "IdentityController_getProfile",
+        "summary": "Get user profile",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/restaurants/{id}": {
+      "get": {
+        "operationId": "RestaurantsController_getRestaurant",
+        "summary": "Get restaurant by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restaurant details"
+          },
+          "404": {
+            "description": "Restaurant not found"
+          }
+        },
+        "tags": [
+          "Restaurants"
+        ]
+      }
+    },
+    "/discovery/search": {
+      "get": {
+        "operationId": "DiscoveryController_search",
+        "summary": "Search restaurants by location and cuisine",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Discovery"
+        ]
+      }
+    },
+    "/floor-plans/{restaurantId}": {
+      "get": {
+        "operationId": "FloorPlansController_getFloorPlan",
+        "summary": "Get active floor plan layout for restaurant",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Floor Plans"
+        ]
+      }
+    },
+    "/availability": {
+      "get": {
+        "operationId": "AvailabilityController_getAvailability",
+        "summary": "Check table availability for date and party size",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "party_size",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "date",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Availability"
+        ]
+      }
+    },
+    "/reservations/{id}": {
+      "get": {
+        "operationId": "ReservationsController_getReservation",
+        "summary": "Get reservation details",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reservations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/payments/webhooks/razorpay": {
+      "post": {
+        "operationId": "PaymentsController_handleWebhook",
+        "summary": "Razorpay webhook inbox endpoint",
+        "parameters": [
+          {
+            "name": "x-razorpay-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/waitlist/join": {
+      "post": {
+        "operationId": "WaitlistController_joinWaitlist",
+        "summary": "Join restaurant waitlist queue",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/booking-status/{bookingId}/history": {
+      "get": {
+        "operationId": "BookingStatusController_getStatusHistory",
+        "summary": "Get append-only state transition history for a booking",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Booking Status"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/walk-ins": {
+      "post": {
+        "operationId": "OwnerOperationsController_recordWalkIn",
+        "summary": "Record immediate staff walk-in seating",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Dine Backend API",
+    "description": "Dine Modular Monolith REST API contracts and schema specification",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Health & Readiness",
+      "description": "Application liveness and dependency status"
+    },
+    {
+      "name": "Identity & Access",
+      "description": "Customer and staff profiles"
+    },
+    {
+      "name": "Restaurants",
+      "description": "Restaurant details, hours, and policies"
+    },
+    {
+      "name": "Discovery",
+      "description": "Geospatial and cuisine restaurant discovery"
+    },
+    {
+      "name": "Floor Plans",
+      "description": "Floor plan versions and table geometry"
+    },
+    {
+      "name": "Availability",
+      "description": "Interval calculations and table availability"
+    },
+    {
+      "name": "Reservations",
+      "description": "Atomic holds, bookings, and lifecycle"
+    },
+    {
+      "name": "Payments",
+      "description": "Razorpay checkout orders and webhook inbox"
+    },
+    {
+      "name": "Waitlist",
+      "description": "FIFO queue and priority exclusive offers"
+    },
+    {
+      "name": "Booking Status",
+      "description": "Guarded transitions and state history"
+    },
+    {
+      "name": "Owner Operations",
+      "description": "Staff walk-ins and table management"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}
