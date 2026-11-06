@@ -10,7 +10,7 @@ import {
   jsonb,
   doublePrecision,
   inet,
-  uniqueIndex,
+  primaryKey,
 } from 'drizzle-orm/pg-core';
 
 // ============================================================================
@@ -28,8 +28,15 @@ export const profiles = pgTable('profiles', {
 });
 
 // ============================================================================
-// 2. Restaurants & Memberships
+// 2. Restaurants, Cuisines, Hours & Policies (EPIC-004)
 // ============================================================================
+export const cuisines = pgTable('cuisines', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull().unique(),
+  slug: text('slug').notNull().unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const restaurants = pgTable('restaurants', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
@@ -38,11 +45,34 @@ export const restaurants = pgTable('restaurants', {
   timezone: text('timezone').default('Asia/Kolkata').notNull(),
   policyMode: text('policy_mode').default('FREE_RESERVATION').notNull(),
   depositAmountMinor: integer('deposit_amount_minor').default(0).notNull(),
+  depositCurrency: varchar('deposit_currency', { length: 3 }).default('INR').notNull(),
   defaultDurationMin: integer('default_duration_min').default(90).notNull(),
   turnoverBufferMin: integer('turnover_buffer_min').default(15).notNull(),
+  policyVersion: integer('policy_version').default(1).notNull(),
+  minPartySize: integer('min_party_size').default(1).notNull(),
+  maxPartySize: integer('max_party_size').default(20).notNull(),
+  leadTimeMinMinutes: integer('lead_time_min_minutes').default(30).notNull(),
+  leadTimeMaxDays: integer('lead_time_max_days').default(60).notNull(),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const restaurantCuisines = pgTable(
+  'restaurant_cuisines',
+  {
+    restaurantId: uuid('restaurant_id')
+      .references(() => restaurants.id, { onDelete: 'cascade' })
+      .notNull(),
+    cuisineId: uuid('cuisine_id')
+      .references(() => cuisines.id, { onDelete: 'cascade' })
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.restaurantId, table.cuisineId] }),
+  })
+);
 
 export const restaurantMemberships = pgTable('restaurant_memberships', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -56,7 +86,7 @@ export const restaurantMemberships = pgTable('restaurant_memberships', {
 export const openingHours = pgTable('opening_hours', {
   id: uuid('id').primaryKey().defaultRandom(),
   restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
-  dayOfWeek: integer('day_of_week').notNull(), // 0 - 6
+  dayOfWeek: integer('day_of_week').notNull(), // 0 - 6 (0 = Sunday, 1 = Monday, etc.)
   openTime: time('open_time').notNull(),
   closeTime: time('close_time').notNull(),
 });
@@ -67,6 +97,24 @@ export const specialClosures = pgTable('special_closures', {
   startTime: timestamp('start_time', { withTimezone: true }).notNull(),
   endTime: timestamp('end_time', { withTimezone: true }).notNull(),
   reason: text('reason'),
+});
+
+export const restaurantPolicyHistory = pgTable('restaurant_policy_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  version: integer('version').notNull(),
+  policyMode: text('policy_mode').notNull(),
+  depositAmountMinor: integer('deposit_amount_minor').notNull(),
+  depositCurrency: varchar('deposit_currency', { length: 3 }).default('INR').notNull(),
+  defaultDurationMin: integer('default_duration_min').notNull(),
+  turnoverBufferMin: integer('turnover_buffer_min').notNull(),
+  minPartySize: integer('min_party_size').notNull(),
+  maxPartySize: integer('max_party_size').notNull(),
+  leadTimeMinMinutes: integer('lead_time_min_minutes').notNull(),
+  leadTimeMaxDays: integer('lead_time_max_days').notNull(),
+  changedBy: uuid('changed_by').references(() => profiles.id),
+  changeReason: text('change_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // ============================================================================

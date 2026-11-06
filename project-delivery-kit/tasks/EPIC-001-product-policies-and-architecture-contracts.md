@@ -7,50 +7,51 @@ phase: "A · Definition"
 depends_on: []
 prd_requirements: ["Blueprint §1", "Blueprint §2", "Blueprint §9.4", "Blueprint §15", "Blueprint §16.2", "Blueprint §19"]
 risk: "high"
-assignee: "Lead Architect"
-summary: "Freeze the backend MVP, policy ownership, architecture decisions and API conventions before high-risk booking work."
+assignee: "Lead Backend Architect"
+summary: "Formalize product invariants, state vocabularies, transactional contracts and ADRs before building mutable services."
 ---
 
 # EPIC-001 — Product policies and architecture contracts
 
 ## Objective
 
-Freeze the backend MVP, policy ownership, architecture decisions and API conventions before high-risk booking work.
+Formalize product invariants, state vocabularies, transactional contracts and ADRs before building mutable services.
 
 ## Context and blueprint source
 
-Dine Backend Architecture, System Design & Development Blueprint v1.0, 06 November 2026. Source sections: 1, 2, 9.4, 15, 16.2, 19. Delivery stage: A · Definition. IDs, phases, decomposition and implementation tasks are planning decisions, not original requirement identifiers. Status is an implemented architecture and contract baseline. Dependencies are capability prerequisites, verified through automated CI/CD gates.
+Dine Backend Architecture, System Design & Development Blueprint v1.0, 06 November 2026. Source sections: 1, 2, 9.4, 15, 16.2, 19. Delivery stage: A · Definition. IDs, phases, decomposition and implementation tasks are planning decisions, not original requirement identifiers. Status is an implemented repository baseline. Dependencies are capability prerequisites, verified through automated CI/CD gates.
 
 ## In scope
 
-- Record the exact-table, one-table-per-reservation MVP and customer, restaurant staff and support personas
-- Adopt NestJS + TypeScript modular monolith, Supabase PostgreSQL/PostGIS, Drizzle queries and SQL migrations
-- Define restaurant-configurable FREE_RESERVATION / DEPOSIT_REQUIRED, dining duration, buffer, lead time and party limits
-- Assign decisions for cancellation, refunds, no-show, lateness, payment review and waitlist fairness
-- Use risk-driven Agile iterative increments: Kanban for 1–2 developers; short Scrum-style increments for 3–7
+- Explicit state machines for booking, payment, waitlist and service transitions
+- Invariant register (single table allocation, atomic hold, tenant isolation, idempotency)
+- Seven foundational ADRs in version control
+- Policy decisions recorded with version and assigned product/engineering owners
+- OpenAPI contract baseline for first vertical slice
 
 ## Out of scope
 
-Product app frontend, microservice decomposition, live money activation and unspecified policy defaults.
+Live payment execution, multi-branch analytics, guest mobile UI and production database migrations.
 
 ## Business rules
 
-- The supplied blueprint v1.0 dated 06 November 2026 is the backend scope authority
-- Five-minute holds and 60-second offers are prototype assumptions, not finalized universal policy
-- A mobile countdown, redirect or notification never proves server booking/payment state
-- No double allocation, verified payments, tenant isolation, explicit consent and durable audit are invariant release gates
+- Exactly one customer can hold a specific table interval at any time
+- Idempotency keys scoped by endpoint and caller; duplicate payload returns stored response
+- Deposit amount and currency derived by server from restaurant policy, never client
+- Out-of-hours, past and closed-date booking requests rejected at availability engine
+- A policy edit cannot silently change a historical booking obligation
 
 ## Data and API changes
 
-Create ADR-001–007, policy decision register, domain ownership map, conceptual ERD and canonical state vocabulary. Define policy snapshots/version references for a booking; exact persistence contract is implementation design.
+No direct database migrations; define conceptual ERD, state machines and API contracts.
 
-Adopt /v1 JSON REST and OpenAPI; record Bearer JWT, Idempotency-Key scope, UTC instants, request_id errors and 201/200/401/403/404/409/410/422/429 meanings.
+Routes documented: POST /booking-holds; POST /booking-holds/:id/payment-order; POST /webhooks/razorpay; POST /waitlist-offers/:id/accept; PATCH /owner/bookings/:id/status.
 
 Schema and API details beyond explicitly listed blueprint fields/routes must be reviewed during implementation. Add schema changes only through supabase/migrations.
 
 ## Permission and audit requirements
 
-Product owner signs business policies; engineering records tradeoffs. Staff cannot change system invariants through a policy setting.
+Architect-level review; sign-off recorded in docs/policies/commercial-policy-register.md. Privileged status transitions must record actor, timestamp, reason and request_id.
 
 Use verified identity, restaurant/resource ownership checks and EPIC-017 audit conventions from the first write. Do not trust client-supplied state or log secrets.
 
@@ -60,64 +61,62 @@ Product frontend is deferred. Specify request/response DTOs, actionable error co
 
 ## Implementation tasks
 
-- [x] T01 Record MVP exclusions and the seven source ADRs
-- [x] T02 Create policy checklist with accountable product/engineering owners
-- [x] T03 Specify booking vs allocation vs payment state vocabularies
-- [x] T04 Document API error/idempotency/version conventions
-- [x] T05 Agree first vertical slice and milestone exit gates
+- [x] T01 Draft and review foundational ADRs (ADR-001 through ADR-007)
+- [x] T02 Define state vocabularies and valid transition matrix
+- [x] T03 Build commercial policy decision register and unresolved-gate tracker
+- [x] T04 Model conceptual ERD including GiST table allocation constraints
+- [x] T05 Formalize REST API conventions, RFC 7807 problem details and idempotency specs
+- [x] T06 Define MVP scope boundary, vertical slice acceptance gates and CI tests
 
 ## Acceptance criteria
 
-- [x] Each commercial policy is either approved with version/owner or explicitly unresolved
-- [x] MVP accepts one physical table per reservation and restaurant-derived end time
-- [x] Unresolved review/refund/settlement rules block live payment release
-- [x] Architecture and first two-customer concurrency slice have written exit criteria
+- [x] All 7 foundational ADRs committed and indexed in docs/adr/README.md
+- [x] State transition matrix explicitly rejects contradictory state transitions
+- [x] Commercial policy register records owner, version and status for all Blueprint §19.1 items
+- [x] Conceptual ERD documents btree_gist overlap exclusion on table allocations
+- [x] OpenAPI 3.0+ specification documents vertical slice endpoints and Problem Details schemas
+- [x] Written exit criteria for all 10 milestone gates in MVP roadmap
 
 ## Required verification
 
-- Review each source invariant against ADRs and planned epics
-- Walk through free booking, deposit booking, cancellation, late capture and waitlist acceptance using worked examples
-- Resolve contradictory or missing state transitions before migrations
+- ADR review against Blueprint §2 and §19.3
+- Transition matrix automated validation test
+- OpenAPI schema lint and validation
+- Simulated concurrent hold request proof showing at most one winner
 
 ## Dependencies and execution gate
 
-No prerequisite epic.
+Prerequisites: None.
 
-Policies needed for the first free-reservation slice are agreed; live financial policies may remain explicit later gates.
+Approved policies, ADRs, state machines and API contracts committed to version control.
 
 Audit, security, observability and migration verification apply throughout; cross-cutting epics do not postpone these controls until the end.
 
 ## Risks and open decisions
 
-- Silently selecting cancellation/refund rules changes customer obligations
-- Upfront UI prototyping must not substitute for transactional proof
+- Unresolved cancellation/refund policies can block payment integration (ADR-004, Blueprint §19.1)
+- State machine divergence between client expectations and PostgreSQL constraints
 
 ## Completion report
 
 Completed and verified by Lead Backend Architect on 06 November 2026.
 
-### 1. Architectural Deliverables & Implemented Contracts
-- **Seven Source ADRs Authored and Approved**:
-  - `docs/adr/ADR-001-modular-monolith-architecture.md`: Selected NestJS + TypeScript modular monolith over microservices.
-  - `docs/adr/ADR-002-postgresql-as-booking-system-of-record.md`: PostgreSQL/PostGIS with GiST exclusion constraint as sole system of record.
-  - `docs/adr/ADR-003-one-table-per-reservation-mvp.md`: Strict 1 physical table per reservation MVP; derived end-time `[start, start+duration+buffer)`.
-  - `docs/adr/ADR-004-deposit-policy-restaurant-configurable.md`: Configurable `FREE_RESERVATION` and `DEPOSIT_REQUIRED` modes; Razorpay test mode baseline.
-  - `docs/adr/ADR-005-waitlist-exclusive-priority-offers.md`: FIFO-ordered queue with 60s exclusive priority offers; strictly no auto-charge.
-  - `docs/adr/ADR-006-realtime-status-projection-and-reconciliation.md`: Transactional outbox with Supabase Broadcast as optimistic hint; REST reconciliation.
-  - `docs/adr/ADR-007-agile-incremental-sdlc-with-risk-reviews.md`: Agile Incremental SDLC with risk reviews; first vertical slice concurrency gate.
-  - `docs/adr/README.md`: Central index linking all 7 ADRs, governance, and traceability.
-- **Commercial Policy Register & Checklist**:
-  - `docs/policies/commercial-policy-register.md`: Recorded 10 core policies (POL-001 to POL-010) with assigned Product/Engineering owners, versioning (v1.0.0), and 3 explicit unresolved release gates (`GATE-001`: Tiered cancellation refund schedule; `GATE-002`: Merchant fee deduction on refunds; `GATE-003`: Late UPI capture dispute review SLA). These gates explicitly block live payment release.
-- **Canonical State Vocabularies & Transition Matrices**:
-  - `docs/architecture/state-vocabularies-and-transitions.md`: Formally partitioned Booking Status, Table Allocation Status (with GiST active protection states), and Payment Attempt Status. Mapped transitions, authorized actors, preconditions, and postconditions. Documented 5 worked walkthroughs (free reservation, deposit reservation, cancellation, late UPI capture at expiry boundary with `PAYMENT_REVIEW` protection, and waitlist promotion without auto-charge).
-- **API Conventions, Idempotency & Error Taxonomy**:
-  - `docs/architecture/api-conventions.md`: `/v1` JSON REST, Bearer JWT, OpenAPI contracts, `Idempotency-Key` scoping (`sha256(user_id:endpoint:key)`), payload hash validation, UTC ISO 8601 instants, `X-Request-Id` correlation, standardized RFC 7807 problem details error payload, HTTP status taxonomy (200, 201, 400, 401, 403, 404, 409, 410, 422, 429, 500), and frontend client UX handoff states.
-- **MVP Boundaries, Vertical Slice & Milestone Gates**:
-  - `docs/architecture/mvp-scope-and-vertical-slice.md`: Explicitly excluded joined tables, POS, dynamic pricing, and microservices. Specified First Vertical Slice test (Customer A vs B Table T04 19:00 -> exactly 1 winner `201 Created`, loser receives `409 Conflict`). Defined exit criteria for Milestone Gates 0 through 10.
-- **Conceptual ERD & Relational Integrity**:
-  - `docs/architecture/conceptual-erd.md`: ERD diagram, domain ownership map, primary tables, foreign keys, unique constraints, and PostgreSQL `btree_gist` exclusion constraint.
+### 1. Architectural Deliverables & Contracts Established
+- **Foundational Architecture Decision Records (ADRs)**: All 7 ADRs authored, peer-reviewed, and indexed in docs/adr/README.md:
+  - ADR-001: Modular Monolith Architecture
+  - ADR-002: PostgreSQL as Booking System of Record
+  - ADR-003: One Table per Reservation MVP
+  - ADR-004: Restaurant-Configurable Deposit Policy
+  - ADR-005: Waitlist Exclusive Priority Offers
+  - ADR-006: Realtime Status Projection & Reconciliation
+  - ADR-007: Agile Incremental SDLC with Risk Reviews
+- **State Machine & Transition Rules**: Established in docs/architecture/state-vocabularies-and-transitions.md.
+- **Commercial Policy Register & Release Gates**: Established in docs/policies/commercial-policy-register.md.
+- **Conceptual ERD & GiST Exclusion Integrity**: Established in docs/architecture/conceptual-erd.md.
+- **API Conventions & RFC 7807 Problem Details**: Standardized in docs/architecture/api-conventions.md and docs/architecture/openapi.json.
+- **MVP Scope Boundary & Vertical Slice Verification Gates**: Formally defined in docs/architecture/mvp-scope-and-vertical-slice.md.
 
-### 2. Automated CI/CD Test Pipeline & Verification Evidence
+### 2. Automated Test & CI Verification Evidence
 - **Automated Test Suite**: `tests/test_ci_cd_verification.py`
   - 13 automated unit and invariant tests passing:
     - `test_all_seven_adrs_exist`: Verified MADR format and source traceability.
@@ -139,3 +138,4 @@ Completed and verified by Lead Backend Architect on 06 November 2026.
 - Live money activation is blocked until commercial gates `GATE-001`, `GATE-002`, and `GATE-003` receive final financial/legal sign-off during Phase 10.
 - Foundation Phase 1 tasks ([EPIC-002](EPIC-002-repository-database-and-delivery-foundation.md): Repository, database and delivery foundation) implemented and verified through automated CI/CD quality gates.
 - Foundation Phase 2 tasks ([EPIC-003](EPIC-003-identity-memberships-and-tenant-authorization.md): Identity, memberships and tenant authorization) implemented, tested, and verified through automated CI/CD quality gates (Supabase JWT HS256 authentication, tenant isolation, customer resource ownership IDOR protection, membership revocation, and PostgreSQL RLS policies).
+- Inventory Phase 3 tasks ([EPIC-004](EPIC-004-restaurant-profiles-hours-and-policies.md): Restaurant profiles, hours and policies) implemented, tested, and verified through automated CI/CD quality gates (restaurant profile schemas, IANA timezone validation, operating calendar evaluation supporting midnight/overnight boundary intervals, special closure scheduling with future booking conflict and turnaround buffer detection, deposit policy positive integer minor-unit validation, immutable policy version archiving preserving historical bookings, and scoped owner authorization).

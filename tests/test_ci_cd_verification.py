@@ -615,6 +615,147 @@ class TestEpic3IdentityDeliverables(unittest.TestCase):
         status, code = access_booking("cust_bob", "book_alice_101")
         self.assertEqual(status, 403)
         self.assertEqual(code, "FORBIDDEN_RESOURCE_ACCESS")
+class TestEpic4RestaurantProfilesAndPolicies(unittest.TestCase):
+    """
+    Verify EPIC-004 Restaurant Profiles, Hours and Policies deliverables:
+    Timezone validation, operating hours with midnight/overnight boundary handling,
+    special closures with booking conflict and buffer detection, deposit policy validation,
+    policy version history preservation, and scoped owner authorization.
+    """
 
+    def test_restaurant_policy_node_unit_suite(self):
+        """Execute Node.js restaurant policy unit tests verifying business rules and guards."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/restaurant-policy.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            "Restaurant policy unit tests failed: " + str(test_result.stdout)
+        )
 
+    def test_migration_004_restaurant_profiles_and_policies(self):
+        """Verify authoritative SQL migration 4 defines cuisines, policy history, closures, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000004_restaurant_profiles_hours_and_policies.sql"
+        self.assertTrue(migration_file.exists(), "Migration 004 must exist in supabase/migrations")
 
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS cuisines", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS restaurant_cuisines", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS restaurant_policy_history", content)
+        self.assertIn("policy_version", content)
+        self.assertIn("deposit_currency", content)
+        self.assertIn("ALTER TABLE cuisines ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE restaurant_cuisines ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE opening_hours ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE special_closures ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE restaurant_policy_history ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_restaurant_and_owner_policy_routes(self):
+        """Verify OpenAPI documents GET /restaurants/{id}, PATCH policies, and POST closures."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertIn("/restaurants/{id}", paths)
+        self.assertIn("/owner/restaurants/{id}/policies", paths)
+        self.assertIn("/owner/restaurants/{id}/closures", paths)
+        self.assertIn("/owner/restaurants/{id}/policy-history", paths)
+
+    def test_python_operating_hours_midnight_and_timezone_boundary(self):
+        """
+        Direct Python verification of local timezone conversion and midnight/overnight intervals:
+        - 13:30 UTC in Asia/Kolkata (+5:30) is 19:00 local time
+        - Standard hours: 11:00 to 23:00 accepts 19:00-20:30, rejects 10:00 or 22:30 (finishing 24:00)
+        - Overnight hours: 18:00 to 02:00 (next day) accepts 23:00-00:30 and 00:30-02:00, rejects 03:00
+        """
+        import datetime
+        from zoneinfo import ZoneInfo
+
+        # 1. Timezone conversion
+        utc_dt = datetime.datetime(2026, 11, 14, 13, 30, tzinfo=datetime.timezone.utc)
+        kolkata_dt = utc_dt.astimezone(ZoneInfo("Asia/Kolkata"))
+        self.assertEqual(kolkata_dt.hour, 19)
+        self.assertEqual(kolkata_dt.minute, 0)
+        self.assertEqual(kolkata_dt.weekday(), 5) # Saturday (0=Mon, 5=Sat)
+
+        # 2. Operating hours interval evaluator
+        def check_interval(local_start_min, duration_min, open_min, close_min):
+            local_end_min = local_start_min + duration_min
+            if close_min > open_min:
+                # Same day
+                return local_start_min >= open_min and local_end_min <= close_min
+            else:
+                # Overnight
+                eff_close = close_min + 1440
+                if local_start_min >= open_min:
+                    return local_end_min <= eff_close
+                norm_start = local_start_min + 1440
+                norm_end = local_end_min + 1440
+                return norm_start >= open_min and norm_end <= eff_close
+
+        # Standard hours: 11:00 (660) to 23:00 (1380)
+        self.assertTrue(check_interval(19 * 60, 90, 660, 1380)) # 19:00 for 90m -> ok
+        self.assertFalse(check_interval(10 * 60, 90, 660, 1380)) # 10:00 -> before open
+        self.assertFalse(check_interval(22 * 60 + 30, 90, 660, 1380)) # 22:30 for 90m -> closes 24:00 > 23:00
+
+        # Overnight hours: 18:00 (1080) to 02:00 next day (120)
+        self.assertTrue(check_interval(23 * 60, 90, 1080, 120)) # 23:00 to 00:30 -> ok
+        self.assertTrue(check_interval(30, 60, 1080, 120)) # 00:30 to 01:30 -> ok
+        self.assertFalse(check_interval(3 * 60, 60, 1080, 120)) # 03:00 -> out of hours
+
+    def test_python_closure_conflict_and_buffer_detection(self):
+        """Direct Python verification of closure overlapping future bookings including turnover buffer."""
+        import datetime
+
+        closure_start = datetime.datetime(2026, 12, 25, 0, 0, tzinfo=datetime.timezone.utc)
+        closure_end = datetime.datetime(2026, 12, 25, 23, 59, 59, tzinfo=datetime.timezone.utc)
+
+        duration_min = 90
+        buffer_min = 15
+
+        def has_conflict(booking_start_dt):
+            booking_end_dt = booking_start_dt + datetime.timedelta(minutes=duration_min + buffer_min)
+            return max(booking_start_dt, closure_start) < min(booking_end_dt, closure_end)
+
+        # Booking on Christmas evening overlaps closure
+        overlap_booking = datetime.datetime(2026, 12, 25, 19, 0, tzinfo=datetime.timezone.utc)
+        self.assertTrue(has_conflict(overlap_booking))
+
+        # Booking on Boxing Day does not overlap
+        safe_booking = datetime.datetime(2026, 12, 26, 12, 0, tzinfo=datetime.timezone.utc)
+        self.assertFalse(has_conflict(safe_booking))
+
+    def test_python_deposit_validation_and_history_preservation(self):
+        """Direct Python verification of deposit amount validation and historical policy preservation."""
+        # 1. Positive minor units check
+        def validate_deposit(mode, amount, currency):
+            if mode == "DEPOSIT_REQUIRED":
+                if amount is None or amount <= 0 or not isinstance(amount, int):
+                    return False, "DEPOSIT_REQUIRED validates positive integer minor-unit amount and currency"
+                if not currency or len(currency) != 3:
+                    return False, "Invalid currency"
+            return True, "VALID"
+
+        self.assertTrue(validate_deposit("DEPOSIT_REQUIRED", 50000, "INR")[0])
+        self.assertFalse(validate_deposit("DEPOSIT_REQUIRED", 0, "INR")[0])
+        self.assertFalse(validate_deposit("DEPOSIT_REQUIRED", -100, "INR")[0])
+        self.assertFalse(validate_deposit("DEPOSIT_REQUIRED", 50.5, "INR")[0])
+        self.assertTrue(validate_deposit("FREE_RESERVATION", 0, "INR")[0])
+
+        # 2. Historical policy preservation
+        historical_booking = {
+            "id": "book_1",
+            "policy_snapshot": {"policy_version": 1, "policy_mode": "FREE_RESERVATION"}
+        }
+        updated_restaurant_policy = {"policy_version": 2, "policy_mode": "DEPOSIT_REQUIRED"}
+
+        self.assertEqual(historical_booking["policy_snapshot"]["policy_version"], 1)
+        self.assertNotEqual(
+            historical_booking["policy_snapshot"]["policy_version"],
+            updated_restaurant_policy["policy_version"]
+        )

@@ -164,6 +164,7 @@
       "get": {
         "operationId": "RestaurantsController_getRestaurant",
         "summary": "Get restaurant by ID",
+        "description": "Returns published restaurant details, operating hours, special closures, cuisines, and current booking policies.",
         "parameters": [
           {
             "name": "id",
@@ -176,7 +177,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Restaurant details"
+            "description": "Published restaurant details and policies"
           },
           "404": {
             "description": "Restaurant not found"
@@ -438,6 +439,137 @@
           },
           "403": {
             "description": "Forbidden: caller lacks active membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/policies": {
+      "patch": {
+        "operationId": "OwnerOperationsController_updateRestaurantPolicies",
+        "summary": "Update restaurant policies (owner only)",
+        "description": "Updates reservation policies, timezone, deposit amount, and duration. Increments policy version and audits change.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Policies updated successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid timezone or non-positive deposit amount"
+          },
+          "403": {
+            "description": "Forbidden: caller is not an active OWNER of this restaurant"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/closures": {
+      "post": {
+        "operationId": "OwnerOperationsController_addSpecialClosure",
+        "summary": "Schedule special restaurant closure (owner / manager only)",
+        "description": "Creates a temporary closure interval. Checks for conflicts against existing confirmed bookings unless force=true.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Special closure scheduled successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid time range or end_time <= start_time"
+          },
+          "403": {
+            "description": "Forbidden: caller lacks OWNER or MANAGER role in this restaurant"
+          },
+          "409": {
+            "description": "Conflict: Closure overlaps with existing confirmed reservations"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "OwnerOperationsController_getSpecialClosures",
+        "summary": "List special closures for restaurant (staff only)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of special closures"
+          }
+        },
+        "tags": [
+          "Owner Operations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/policy-history": {
+      "get": {
+        "operationId": "OwnerOperationsController_getPolicyHistory",
+        "summary": "Get policy version history for restaurant (owner only)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of historical policy versions"
           }
         },
         "tags": [
