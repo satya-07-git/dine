@@ -183,6 +183,12 @@ VALUES
     ('20000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000003', 4, '2026-11-10 20:00:00+00', 'WAITING')
 ON CONFLICT (id) DO NOTHING;
 
+-- 10.1 Table Blocks (EPIC-007 Physical Table Maintenance & Protection)
+INSERT INTO table_blocks (id, table_id, block_period, reason)
+VALUES
+    ('70000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000005', tstzrange('2026-11-10 14:00:00+00', '2026-11-10 16:00:00+00'), 'VIP Private Event Setup')
+ON CONFLICT (id) DO NOTHING;
+
 -- 11. Menu Categories & Items (EPIC-005 Public Menu Catalog)
 INSERT INTO menu_categories (id, restaurant_id, name, description, display_order, is_active)
 VALUES

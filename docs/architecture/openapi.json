@@ -574,15 +574,17 @@
         ]
       }
     },
-    "/availability": {
+    "/restaurants/{id}/availability": {
       "get": {
-        "operationId": "AvailabilityController_getAvailability",
-        "summary": "Check table availability for date and party size",
+        "operationId": "AvailabilityController_getRestaurantAvailability",
+        "summary": "Time-range table availability for restaurant",
+        "description": "Computes restaurant-local dining intervals and time-scoped eligibility from policy, blocks, and protected allocations. Returns floor plan version and timestamped snapshot without customer identities.",
         "parameters": [
           {
-            "name": "restaurant_id",
+            "name": "id",
             "required": true,
-            "in": "query",
+            "in": "path",
+            "description": "Restaurant UUID",
             "schema": {
               "type": "string"
             }
@@ -591,14 +593,140 @@
             "name": "party_size",
             "required": true,
             "in": "query",
+            "description": "Requested party size (positive integer)",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "requested_start",
+            "required": false,
+            "in": "query",
+            "description": "Requested start timestamp (ISO 8601 UTC or local YYYY-MM-DDTHH:mm)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Alias for requested_start",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restaurant table availability snapshot"
+          },
+          "400": {
+            "description": "Invalid party size or interval"
+          },
+          "404": {
+            "description": "Restaurant not found or unavailable"
+          }
+        },
+        "tags": [
+          "Availability"
+        ]
+      }
+    },
+    "/tables/{id}/availability": {
+      "get": {
+        "operationId": "AvailabilityController_getTableAvailability",
+        "summary": "Single table availability by interval",
+        "description": "Checks time-scoped eligibility, blocks, and protected allocations for a specific physical table. Returns server-derived interval and snapshot without leaking guest details.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Table UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requested_start",
+            "required": false,
+            "in": "query",
+            "description": "Requested start timestamp (ISO 8601 UTC or local YYYY-MM-DDTHH:mm)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "date",
+            "required": false,
+            "in": "query",
+            "description": "Alias for requested_start",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "party_size",
+            "required": false,
+            "in": "query",
+            "description": "Party size to evaluate capacity against",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Table availability snapshot"
+          },
+          "404": {
+            "description": "Table not found or unavailable"
+          }
+        },
+        "tags": [
+          "Availability"
+        ]
+      }
+    },
+    "/availability": {
+      "get": {
+        "operationId": "AvailabilityController_checkAvailability",
+        "summary": "Check table availability for date and party size (backward-compatible alias)",
+        "description": "Legacy endpoint for restaurant availability check.",
+        "parameters": [
+          {
+            "name": "restaurant_id",
+            "required": true,
+            "in": "query",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "party_size",
+            "required": true,
+            "in": "query",
+            "description": "Party size",
             "schema": {
               "type": "number"
             }
           },
           {
             "name": "date",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Requested start date/time",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "requested_start",
+            "required": false,
+            "in": "query",
+            "description": "Requested start timestamp",
             "schema": {
               "type": "string"
             }

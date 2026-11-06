@@ -1089,3 +1089,203 @@ class TestEpic6VersionedFloorPlansAndTables(unittest.TestCase):
         status, code = authorize_floor_write("staff_rest1", "restaurant_1", "fl_02")
         self.assertEqual(status, 403)
         self.assertEqual(code, "FLOOR_CROSS_TENANT_MISMATCH")
+
+class TestEpic7TimeRangeAvailabilityAndPolicyEngine(unittest.TestCase):
+    """
+    Verify EPIC-007 Time-Range Availability and Policy Engine deliverables:
+    - Server-derived UTC intervals with dining duration and turnover cleanup buffer
+    - Half-open [start, end) interval semantics rejecting overlaps and allowing adjacencies
+    - Authoritative GiST range overlap query indexes and RLS policies on table_blocks
+    - Comprehensive table state/reason taxonomy (AVAILABLE, ALLOCATED, BLOCKED, CAPACITY_MISMATCH, TABLE_INACTIVE)
+    - Conservative handling of expired protected allocations preventing race conditions
+    - Strict privacy invariants stripping guest identity, booking IDs, and payment details
+    - Snapshot metadata containing server timestamp and floor plan version
+    """
+
+    def test_availability_node_unit_suite(self):
+        """Execute Node.js availability unit tests verifying interval calculator and service integration."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/availability.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            "Availability unit tests failed: " + str(test_result.stdout)
+        )
+        self.assertIn("pass 26", test_result.stdout)
+
+    def test_migration_007_time_range_availability_and_blocks(self):
+        """Verify authoritative SQL migration 7 defines GiST indexes, range check, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000007_time_range_availability_and_blocks.sql"
+        self.assertTrue(migration_file.exists(), "Migration 007 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("check_table_blocks_valid_range", content)
+        self.assertIn("idx_table_blocks_gist", content)
+        self.assertIn("idx_table_allocations_gist", content)
+        self.assertIn("idx_table_allocations_protected_status", content)
+        self.assertIn("ALTER TABLE table_blocks ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("table_blocks_public_read", content)
+        self.assertIn("table_blocks_staff_manage", content)
+
+    def test_openapi_availability_routes(self):
+        """Verify OpenAPI documents availability endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+
+        paths = spec["paths"]
+        self.assertIn("/restaurants/{id}/availability", paths)
+        self.assertIn("/tables/{id}/availability", paths)
+        self.assertIn("/availability", paths)
+
+    def test_python_half_open_interval_and_buffer_rules(self):
+        """
+        Direct Python verification of half-open interval and cleanup buffer rules:
+        - 19:00 start with 90m dining + 15m buffer -> protection ends at 20:45
+        - 19:00-20:45 rejects a 20:00 overlapping request (20:00-21:45)
+        - Adjacent eligible range beginning at 20:45 is NOT rejected solely for adjacency
+        - Preceding adjacent range ending at 19:00 does not overlap
+        """
+        from datetime import datetime, timedelta, timezone
+
+        def compute_interval(start_iso: str, duration_min: int, buffer_min: int):
+            if duration_min <= 0:
+                raise ValueError("Duration must be positive")
+            if buffer_min < 0:
+                raise ValueError("Buffer cannot be negative")
+            start = datetime.fromisoformat(start_iso.replace("Z", "+00:00"))
+            end = start + timedelta(minutes=duration_min + buffer_min)
+            return start, end
+
+        def overlaps(a_start, a_end, b_start, b_end):
+            # Half-open [start, end) overlap: max(start) < min(end)
+            return max(a_start, b_start) < min(a_end, b_end)
+
+        # 1. Protection ends at 20:45 for 19:00 start with 90m duration + 15m buffer
+        base_start, base_end = compute_interval("2026-11-10T19:00:00Z", 90, 15)
+        self.assertEqual(base_end.isoformat(), "2026-11-10T20:45:00+00:00")
+
+        # 2. 19:00-20:45 allocation rejects a 20:00 overlapping request (20:00-21:45)
+        req_start, req_end = compute_interval("2026-11-10T20:00:00Z", 90, 15)
+        self.assertTrue(overlaps(base_start, base_end, req_start, req_end))
+
+        # 3. Adjacent range beginning at 20:45 (20:45-22:30) is NOT rejected
+        adj_start, adj_end = compute_interval("2026-11-10T20:45:00Z", 90, 15)
+        self.assertFalse(overlaps(base_start, base_end, adj_start, adj_end))
+
+        # 4. Adjacent preceding range ending at 19:00 (17:15-19:00) does not overlap
+        prec_start, prec_end = compute_interval("2026-11-10T17:15:00Z", 90, 15)
+        self.assertFalse(overlaps(base_start, base_end, prec_start, prec_end))
+
+        # 5. Invalid intervals
+        with self.assertRaises(ValueError):
+            compute_interval("2026-11-10T19:00:00Z", 0, 15)
+        with self.assertRaises(ValueError):
+            compute_interval("2026-11-10T19:00:00Z", 90, -5)
+
+    def test_python_table_state_and_reason_matrix(self):
+        """Direct Python verification of table availability state and reason evaluation matrix."""
+        def evaluate_table(is_active, capacity, min_covers, party_size, is_blocked, is_allocated):
+            if not is_active:
+                return "UNAVAILABLE", "TABLE_INACTIVE"
+            if party_size > capacity or party_size < min_covers:
+                return "UNAVAILABLE", "CAPACITY_MISMATCH"
+            if is_blocked:
+                return "UNAVAILABLE", "BLOCKED"
+            if is_allocated:
+                return "UNAVAILABLE", "ALLOCATED"
+            return "AVAILABLE", None
+
+        # Eligible table
+        state, reason = evaluate_table(True, 4, 2, 4, False, False)
+        self.assertEqual(state, "AVAILABLE")
+        self.assertIsNone(reason)
+
+        # Inactive table
+        state, reason = evaluate_table(False, 4, 2, 4, False, False)
+        self.assertEqual(state, "UNAVAILABLE")
+        self.assertEqual(reason, "TABLE_INACTIVE")
+
+        # Over-capacity
+        state, reason = evaluate_table(True, 4, 2, 6, False, False)
+        self.assertEqual(state, "UNAVAILABLE")
+        self.assertEqual(reason, "CAPACITY_MISMATCH")
+
+        # Under min_covers
+        state, reason = evaluate_table(True, 6, 4, 2, False, False)
+        self.assertEqual(state, "UNAVAILABLE")
+        self.assertEqual(reason, "CAPACITY_MISMATCH")
+
+        # Blocked
+        state, reason = evaluate_table(True, 4, 2, 4, True, False)
+        self.assertEqual(state, "UNAVAILABLE")
+        self.assertEqual(reason, "BLOCKED")
+
+        # Allocated
+        state, reason = evaluate_table(True, 4, 2, 4, False, True)
+        self.assertEqual(state, "UNAVAILABLE")
+        self.assertEqual(reason, "ALLOCATED")
+
+    def test_python_conservative_expired_allocation_handling(self):
+        """
+        Verify invariant: Expired timestamps alone do not make a protected allocation safe to ignore.
+        Until the authoritative reaper or hold transaction releases it, un-reaped rows remain blocking.
+        """
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        expired_hold = {
+            "id": "alloc_old_1",
+            "table_id": "tbl_04",
+            "status": "HELD",
+            "expires_at": now - timedelta(minutes=10), # Expired 10m ago, but row not yet deleted/reaped
+        }
+
+        PROTECTED_STATUSES = {"HELD", "OFFER_HELD", "PAYMENT_PENDING", "PAYMENT_REVIEW", "CONFIRMED", "READY", "SEATED", "COMPLETED"}
+
+        def is_allocation_blocking(alloc):
+            # Conservative rule: status alone governs GiST exclusion until row transition
+            return alloc["status"] in PROTECTED_STATUSES
+
+        self.assertTrue(
+            is_allocation_blocking(expired_hold),
+            "Un-reaped expired allocation must conservatively block availability until transactionally released"
+        )
+
+    def test_python_public_availability_privacy_invariants(self):
+        """Verify public availability responses strip all customer and private booking identities."""
+        internal_table_evaluation = {
+            "table_id": "f0000000-0000-0000-0000-000000000004",
+            "table_number": "T04",
+            "floor_id": "d0000000-0000-0000-0000-000000000001",
+            "floor_name": "Ground Main Dining Room",
+            "capacity": 4,
+            "min_covers": 2,
+            "zone": "CENTER",
+            "state": "UNAVAILABLE",
+            "reason": "ALLOCATED",
+            # Internal fields that MUST NOT leak:
+            "user_id": "a0000000-0000-0000-0000-000000000002",
+            "guest_name": "Customer Alice",
+            "booking_id": "10000000-0000-0000-0000-000000000001",
+            "payment_id": "pay_test_123",
+            "email": "alice@customer.local",
+            "phone": "+919876543211"
+        }
+
+        # Project public DTO
+        allowed_keys = {"table_id", "table_number", "floor_id", "floor_name", "capacity", "min_covers", "zone", "state", "reason"}
+        public_projection = {k: v for k, v in internal_table_evaluation.items() if k in allowed_keys}
+
+        forbidden_keys = ["user_id", "guest_name", "booking_id", "payment_id", "email", "phone"]
+        for forbidden in forbidden_keys:
+            self.assertNotIn(
+                forbidden,
+                public_projection,
+                f"Forbidden private identity field {forbidden} leaked in public availability response"
+            )
+

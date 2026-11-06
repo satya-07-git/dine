@@ -265,3 +265,80 @@ export interface UpdateFloorPlanResponseDto {
   tables_count: number;
   message: string;
 }
+
+// ============================================================================
+// EPIC-007 Time-Range Availability & Policy Engine DTOs
+// ============================================================================
+
+export type TableAvailabilityState = 'AVAILABLE' | 'UNAVAILABLE';
+
+export type TableUnavailabilityReason =
+  | 'ALLOCATED'
+  | 'BLOCKED'
+  | 'CAPACITY_MISMATCH'
+  | 'TABLE_INACTIVE'
+  | 'RESTAURANT_INELIGIBLE';
+
+export interface TableAvailabilityDto {
+  table_id: string;
+  table_number: string;
+  floor_id: string;
+  floor_name?: string;
+  capacity: number;
+  min_covers: number;
+  zone: string;
+  state: TableAvailabilityState;
+  reason?: TableUnavailabilityReason | null;
+}
+
+export interface DiningIntervalDto {
+  requested_start: string; // ISO 8601 UTC
+  derived_end: string;     // ISO 8601 UTC
+  dining_duration_min: number;
+  turnover_buffer_min: number;
+  protection_duration_min: number;
+  timezone: string;
+}
+
+export interface RestaurantAvailabilityQueryDto {
+  party_size: number;
+  date?: string;
+  requested_start?: string;
+}
+
+export interface RestaurantAvailabilityResponseDto {
+  restaurant_id: string;
+  eligible: boolean;
+  reason?: string | null;
+  message?: string | null;
+  availability_snapshot_at: string;
+  floor_plan_version: number;
+  interval?: DiningIntervalDto | null;
+  party_size: number;
+  tables: TableAvailabilityDto[];
+  available_tables_count: number;
+  total_tables_count: number;
+}
+
+export interface SingleTableAvailabilityQueryDto {
+  date?: string;
+  requested_start?: string;
+  party_size?: number;
+}
+
+export interface SingleTableAvailabilityResponseDto {
+  table_id: string;
+  restaurant_id: string;
+  table_number: string;
+  floor_id: string;
+  floor_name?: string;
+  capacity: number;
+  min_covers: number;
+  zone: string;
+  floor_plan_version: number;
+  availability_snapshot_at: string;
+  state: TableAvailabilityState;
+  reason?: TableUnavailabilityReason | string | null;
+  interval?: DiningIntervalDto | null;
+  eligible: boolean;
+}

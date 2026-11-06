@@ -11,7 +11,14 @@ import {
   doublePrecision,
   inet,
   primaryKey,
+  customType,
 } from 'drizzle-orm/pg-core';
+
+export const tstzrange = customType<{ data: string }>({
+  dataType() {
+    return 'tstzrange';
+  },
+});
 
 // ============================================================================
 // 1. Identity & Profiles
@@ -205,6 +212,7 @@ export const restaurantTables = pgTable('restaurant_tables', {
 export const tableBlocks = pgTable('table_blocks', {
   id: uuid('id').primaryKey().defaultRandom(),
   tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'cascade' }).notNull(),
+  blockPeriod: tstzrange('block_period').notNull(),
   reason: text('reason').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -228,6 +236,7 @@ export const tableAllocations = pgTable('table_allocations', {
   id: uuid('id').primaryKey().defaultRandom(),
   tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'cascade' }).notNull(),
   bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'set null' }),
+  diningPeriod: tstzrange('dining_period').notNull(),
   status: text('status').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
