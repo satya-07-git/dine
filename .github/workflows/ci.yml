@@ -29,6 +29,10 @@ jobs:
         run: |
           npm install
 
+      - name: Build backend artifacts
+        run: |
+          npm run build
+
       - name: Rebuild and validate dashboard
         run: |
           python3 project-delivery-kit/tasks/build_dashboard.py
