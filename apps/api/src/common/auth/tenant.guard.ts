@@ -29,14 +29,23 @@ export class TenantGuard implements CanActivate {
     }
 
     // Extract restaurant ID from route params, query, body, or headers
-    const restaurantId =
+    let restaurantId =
       request.params?.restaurantId ||
-      request.params?.id ||
       request.body?.restaurant_id ||
       request.body?.restaurantId ||
       request.query?.restaurant_id ||
       request.query?.restaurantId ||
       request.headers?.['x-restaurant-id'];
+
+    if (!restaurantId && request.params?.id) {
+      const isBookingRoute =
+        Boolean(request.route?.path?.includes('/bookings/')) ||
+        Boolean(request.path?.includes('/bookings/')) ||
+        Boolean(request.url?.includes('/bookings/'));
+      if (!isBookingRoute) {
+        restaurantId = request.params.id;
+      }
+    }
 
     if (!restaurantId) {
       // If no restaurant context is targeted, allow next handlers to validate specific resources
@@ -80,10 +89,7 @@ export class TenantGuard implements CanActivate {
     }
 
     // 3. Check role requirements
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(RESTAURANT_ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(RESTAURANT_ROLES_KEY, [\n      context.getHandler(),\n      context.getClass(),\n    ]);
 
     if (requiredRoles && requiredRoles.length > 0) {
       if (!requiredRoles.includes(membership.role)) {

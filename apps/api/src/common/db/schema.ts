@@ -218,11 +218,11 @@ export const tableBlocks = pgTable('table_blocks', {
 });
 
 // ============================================================================
-// 4. Bookings & Table Allocations
+// 4. Bookings, Check-in Tokens & Table Allocations (EPIC-009 & EPIC-014)
 // ============================================================================
 export const bookings = pgTable('bookings', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').references(() => profiles.id).notNull(),
+  userId: uuid('user_id').references(() => profiles.id),
   restaurantId: uuid('restaurant_id').references(() => restaurants.id).notNull(),
   partySize: integer('party_size').notNull(),
   requestedStart: timestamp('requested_start', { withTimezone: true }).notNull(),
@@ -230,13 +230,30 @@ export const bookings = pgTable('bookings', {
   status: text('status').notNull(),
   version: integer('version').default(1).notNull(),
   policySnapshot: jsonb('policy_snapshot').default({}).notNull(),
+  isWalkIn: boolean('is_walk_in').default(false).notNull(),
+  guestName: text('guest_name'),
+  guestPhone: text('guest_phone'),
+  guestEmail: text('guest_email'),
   checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
+  readyAt: timestamp('ready_at', { withTimezone: true }),
   seatedAt: timestamp('seated_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  noShowAt: timestamp('no_show_at', { withTimezone: true }),
   cancellationReason: text('cancellation_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const bookingCheckInTokens = pgTable('booking_check_in_tokens', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'cascade' }).notNull(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  isUsed: boolean('is_used').default(false).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const tableAllocations = pgTable('table_allocations', {

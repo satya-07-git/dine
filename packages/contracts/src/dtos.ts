@@ -823,3 +823,132 @@ export interface ClientSyncStateResponseDto {
   booking: BookingLifecycleDetailDto;
   reconnect_recommended: boolean;
 }
+
+// ============================================================================
+// EPIC-014 Owner Operations, Check-in and Walk-ins DTOs
+// ============================================================================
+
+export interface OwnerBookingListQueryDto {
+  status?: BookingStatus | string;
+  date?: string; // YYYY-MM-DD
+  is_walk_in?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface OwnerBookingResponseDto {
+  id: string;
+  restaurant_id: string;
+  user_id?: string | null;
+  guest_name?: string | null;
+  guest_phone?: string | null;
+  guest_email?: string | null;
+  party_size: number;
+  requested_start: string;
+  dining_period?: {
+    start: string;
+    end: string;
+  };
+  status: BookingStatus | string;
+  allocation_status?: AllocationStatus | string;
+  table_id?: string | null;
+  table_number?: string | null;
+  floor_id?: string | null;
+  floor_name?: string | null;
+  is_walk_in: boolean;
+  version: number;
+  checked_in_at?: string | null;
+  ready_at?: string | null;
+  seated_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  no_show_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OwnerBookingListResponseDto {
+  items: OwnerBookingResponseDto[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface GenerateCheckInQrResponseDto {
+  booking_id: string;
+  restaurant_id: string;
+  qr_token: string;
+  expires_at: string;
+  qr_payload: string;
+}
+
+export interface CheckInRequestDto {
+  qr_token?: string;
+  booking_id?: string;
+}
+
+export interface CheckInResponseDto {
+  success: boolean;
+  booking_id: string;
+  restaurant_id: string;
+  status: BookingStatus | string;
+  checked_in_at: string;
+  is_repeat: boolean;
+  message: string;
+}
+
+export interface RecordWalkInRequestDto {
+  restaurant_id: string;
+  table_id: string;
+  party_size: number;
+  guest_name?: string;
+  guest_phone?: string;
+  guest_email?: string;
+  duration_min?: number;
+  notes?: string;
+}
+
+export interface WalkInResponseDto {
+  booking_id: string;
+  allocation_id: string;
+  restaurant_id: string;
+  table_id: string;
+  table_number: string;
+  party_size: number;
+  status: BookingStatus | string;
+  allocation_status: AllocationStatus | string;
+  seated_at: string;
+  dining_period: {
+    start: string;
+    end: string;
+  };
+  is_walk_in: boolean;
+  version: number;
+  message: string;
+}
+
+export interface CreateTableBlockRequestDto {
+  table_id: string;
+  start_time: string; // ISO 8601 UTC
+  end_time: string;   // ISO 8601 UTC
+  reason: string;
+  force?: boolean;
+}
+
+export interface TableBlockResponseDto {
+  id: string;
+  table_id: string;
+  restaurant_id: string;
+  block_period: {
+    start: string;
+    end: string;
+  };
+  reason: string;
+  created_by?: string | null;
+  created_at: string;
+}
+
+export interface TableBlockListQueryDto {
+  table_id?: string;
+  date?: string;
+}

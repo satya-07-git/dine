@@ -7,6 +7,7 @@ import {
   RealtimeTopicType,
   ErrorCode,
   BookingStatus,
+  ProcessOutboxBatchResponseDto,
 } from '@dine/contracts';
 import {
   EventEnvelope,
@@ -328,6 +329,7 @@ export class NotificationsService {
       for (const ev of this.memoryOutbox) {
         if (
           (ev.status === OutboxEventStatus.PENDING ||
+            ev.status === OutboxEventStatus.PROCESSING ||
             (ev.status === OutboxEventStatus.FAILED && ev.attempts < ev.maxAttempts)) &&
           claimed.length < batchSize
         ) {
@@ -348,23 +350,7 @@ export class NotificationsService {
     workerId?: string;
     channels?: NotificationChannel[];
     simulateProviderFailure?: boolean;
-  }): Promise<{
-    processedCount: number;
-    publishedCount: number;
-    failedCount: number;
-    deadLetterCount: number;
-    skippedDuplicateCount: number;
-    events: Array<{
-      eventId: string;
-      eventType: string;
-      status: string;
-      deliveries: Array<{
-        channel: string;
-        status: string;
-        duplicate: boolean;
-      }>;
-    }>;
-  }> {
+  }): Promise<ProcessOutboxBatchResponseDto> {
     const batchSize = options?.batchSize || 10;
     const workerId = options?.workerId || `worker-${crypto.randomUUID().slice(0, 8)}`;
     const targetChannels = options?.channels || [

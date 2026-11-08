@@ -33,6 +33,7 @@ async function generateOpenApiSpec() {
     .addTag('Waitlist', 'FIFO queue and priority exclusive offers')
     .addTag('Booking Status', 'Guarded transitions and state history')
     .addTag('Owner Operations', 'Staff walk-ins and table management')
+    .addTag('Notifications & Realtime', 'Transactional outbox worker, topic authorization, and status delivery')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

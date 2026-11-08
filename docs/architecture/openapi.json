@@ -2398,6 +2398,221 @@
         ]
       }
     },
+    "/notifications/realtime/authorize": {
+      "post": {
+        "operationId": "NotificationsController_authorizeTopic",
+        "summary": "Authorize private Realtime topic subscription",
+        "description": "Validates caller identity against requested user or restaurant topic. Rejects unauthorized topic subscription attempts with 403 Forbidden.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "description": "Target topic string (e.g. user:<userId> or restaurant:<restaurantId>)",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "topic"
+                ],
+                "properties": {
+                  "topic": {
+                    "type": "string",
+                    "example": "user:123e4567-e89b-12d3-a456-426614174000"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Topic subscription authorized"
+          },
+          "400": {
+            "description": "Invalid topic format"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: caller cannot subscribe to another user or unassigned restaurant private topic"
+          }
+        },
+        "tags": [
+          "Notifications & Realtime"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/outbox/process": {
+      "post": {
+        "operationId": "NotificationsController_processOutboxBatch",
+        "summary": "Trigger outbox claim and dispatch worker cycle",
+        "description": "Claims pending and retryable outbox events and dispatches them across notification channels with deduplication and bounded retries.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Outbox batch processed successfully"
+          }
+        },
+        "tags": [
+          "Notifications & Realtime"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/outbox": {
+      "get": {
+        "operationId": "NotificationsController_getOutboxEvents",
+        "summary": "Query transactional outbox events",
+        "description": "Retrieves outbox events, claim statuses, retry metadata, and aggregate linkage.",
+        "parameters": [
+          {
+            "name": "aggregateId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by aggregate UUID",
+            "schema": {}
+          },
+          {
+            "name": "aggregateType",
+            "required": false,
+            "in": "query",
+            "description": "Filter by aggregate type",
+            "schema": {}
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by outbox status",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Outbox events retrieved"
+          }
+        },
+        "tags": [
+          "Notifications & Realtime"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/deliveries": {
+      "get": {
+        "operationId": "NotificationsController_getNotificationDeliveries",
+        "summary": "Query notification delivery deduplication store",
+        "description": "Retrieves notification deliveries, attempt counts, channels, and delivery timestamps.",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Filter by delivery status",
+            "schema": {}
+          },
+          {
+            "name": "channel",
+            "required": false,
+            "in": "query",
+            "description": "Filter by channel",
+            "schema": {}
+          },
+          {
+            "name": "recipientId",
+            "required": false,
+            "in": "query",
+            "description": "Filter by recipient UUID",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deliveries retrieved"
+          }
+        },
+        "tags": [
+          "Notifications & Realtime"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/notifications/sync/{bookingId}": {
+      "get": {
+        "operationId": "NotificationsController_syncBookingState",
+        "summary": "Client reconnect canonical state sync",
+        "description": "Returns authoritative REST snapshot upon client launch or reconnect. Evaluates client last-seen sequence number to prevent stale or out-of-order events from overriding canonical state.",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID to reconcile",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lastSeenSequence",
+            "required": false,
+            "in": "query",
+            "description": "Client last-seen event sequence number",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lastSeenVersion",
+            "required": false,
+            "in": "query",
+            "description": "Client last-seen booking version",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Canonical state and reconciliation result returned"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: cannot view another customer booking"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Notifications & Realtime"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/owner/restaurants/{id}/bookings": {
       "get": {
         "operationId": "OwnerOperationsController_getRestaurantBookings",
@@ -2723,6 +2938,10 @@
     {
       "name": "Owner Operations",
       "description": "Staff walk-ins and table management"
+    },
+    {
+      "name": "Notifications & Realtime",
+      "description": "Transactional outbox worker, topic authorization, and status delivery"
     }
   ],
   "servers": [],
