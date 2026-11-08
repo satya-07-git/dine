@@ -12,6 +12,13 @@ import {
   PaymentIncidentType,
   PaymentIncidentSeverity,
   PaymentIncidentStatus,
+  WaitlistStatus,
+  WaitlistOfferStatus,
+  WaitlistSkipReason,
+  OutboxEventStatus,
+  NotificationChannel,
+  NotificationDeliveryStatus,
+  RealtimeTopicType,
 } from './enums';
 
 export interface HealthResponseDto {
@@ -608,4 +615,211 @@ export interface ResolvePaymentIncidentResponseDto {
   status: string;
   resolved_at: string;
   message: string;
+}
+
+// ============================================================================
+// EPIC-012 Eligible Waitlist & Exclusive Priority Offers DTOs
+// ============================================================================
+
+export interface CreateWaitlistEntryRequestDto {
+  restaurant_id: string;
+  party_size: number;
+  requested_start: string; // ISO 8601 UTC
+  table_id?: string;
+  notes?: string;
+}
+
+export interface WaitlistEntryResponseDto {
+  id: string;
+  restaurant_id: string;
+  user_id: string;
+  party_size: number;
+  requested_start: string;
+  requested_end?: string | null;
+  table_id?: string | null;
+  priority_score: number;
+  status: WaitlistStatus | string;
+  position: number;
+  estimated_wait_minutes?: number;
+  skip_reason?: string | null;
+  created_at: string;
+}
+
+export interface WaitlistOfferResponseDto {
+  id: string;
+  waitlist_entry_id: string;
+  restaurant_id: string;
+  table_id: string;
+  allocation_id: string;
+  offered_start?: string;
+  offered_end?: string;
+  expires_at: string;
+  server_time: string;
+  status: WaitlistOfferStatus | string;
+  seconds_remaining: number;
+  deposit_required: boolean;
+  deposit_amount_minor: number;
+  currency: string;
+  created_at: string;
+}
+
+export interface AcceptWaitlistOfferResponseDto {
+  offer_id: string;
+  booking_id: string;
+  status: string;
+  policy_mode: PolicyMode | string;
+  payment_order_required: boolean;
+  gateway_order_id?: string | null;
+  amount_minor?: number;
+  currency?: string;
+  message: string;
+}
+
+export interface DeclineWaitlistOfferResponseDto {
+  offer_id: string;
+  status: string;
+  released: boolean;
+  message: string;
+}
+
+export interface LeaveWaitlistResponseDto {
+  entry_id: string;
+  status: string;
+  message: string;
+}
+
+export interface WaitlistPromotionResultDto {
+  promoted: boolean;
+  offer_id?: string | null;
+  waitlist_entry_id?: string | null;
+  table_id: string;
+  allocation_status: string;
+  skipped_count: number;
+  reason?: string | null;
+}
+
+// ============================================================================
+// EPIC-013 Transactional Events, Private Realtime & Notifications DTOs
+// ============================================================================
+
+export interface EventEnvelopeDto<T = Record<string, unknown>> {
+  event_id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: string;
+  sequence_number: number;
+  occurred_at: string;
+  restaurant_id?: string | null;
+  user_id?: string | null;
+  payload: T;
+}
+
+export interface AuthorizeTopicRequestDto {
+  topic: string; // e.g. "user:<userId>" or "restaurant:<restaurantId>" or "booking:<bookingId>"
+}
+
+export interface AuthorizeTopicResponseDto {
+  authorized: boolean;
+  topic: string;
+  topic_type: RealtimeTopicType | string;
+  recipient_id: string;
+  expires_at: string;
+  token: string;
+  allowed_events: string[];
+}
+
+export interface OutboxEventResponseDto {
+  id: string;
+  aggregate_type: string;
+  aggregate_id: string;
+  event_type: string;
+  payload: Record<string, unknown>;
+  status: OutboxEventStatus | string;
+  attempts: number;
+  max_attempts: number;
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  claim_expires_at?: string | null;
+  next_retry_at?: string | null;
+  last_error?: string | null;
+  published_at?: string | null;
+  sequence_number: number;
+  restaurant_id?: string | null;
+  user_id?: string | null;
+  created_at: string;
+}
+
+export interface OutboxQueryDto {
+  status?: OutboxEventStatus | string;
+  aggregate_type?: string;
+  aggregate_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ProcessOutboxBatchRequestDto {
+  batch_size?: number;
+  worker_id?: string;
+  channels?: NotificationChannel[];
+  simulate_provider_failure?: boolean;
+}
+
+export interface ProcessOutboxBatchResponseDto {
+  processed_count: number;
+  published_count: number;
+  failed_count: number;
+  dead_letter_count: number;
+  skipped_duplicate_count: number;
+  events: Array<{
+    event_id: string;
+    event_type: string;
+    status: string;
+    deliveries: Array<{
+      channel: string;
+      status: string;
+      duplicate: boolean;
+    }>;
+  }>;
+}
+
+export interface NotificationDeliveryResponseDto {
+  id: string;
+  outbox_event_id: string;
+  recipient_id: string;
+  channel: NotificationChannel | string;
+  idempotency_key: string;
+  status: NotificationDeliveryStatus | string;
+  attempts: number;
+  payload: Record<string, unknown>;
+  last_error?: string | null;
+  delivered_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationDeliveryQueryDto {
+  recipient_id?: string;
+  channel?: NotificationChannel | string;
+  status?: NotificationDeliveryStatus | string;
+  outbox_event_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ClientSyncStateRequestDto {
+  booking_id: string;
+  last_seen_sequence?: number;
+  last_seen_version?: number;
+}
+
+export interface ClientSyncStateResponseDto {
+  booking_id: string;
+  canonical_status: BookingStatus | string;
+  allocation_status?: AllocationStatus | string;
+  version: number;
+  latest_sequence_number: number;
+  is_stale: boolean;
+  missed_events_count: number;
+  booking: BookingLifecycleDetailDto;
+  reconnect_recommended: boolean;
 }

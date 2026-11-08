@@ -328,25 +328,44 @@ export const paymentIncidents = pgTable('payment_incidents', {
 });
 
 // ============================================================================
-// 6. Waitlist Queue
+// 6. Waitlist Queue & Priority Offers (EPIC-012)
 // ============================================================================
 export const waitlistEntries = pgTable('waitlist_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
   restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
   userId: uuid('user_id').references(() => profiles.id).notNull(),
+  tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'set null' }),
   partySize: integer('party_size').notNull(),
   requestedStart: timestamp('requested_start', { withTimezone: true }).notNull(),
+  requestedEnd: timestamp('requested_end', { withTimezone: true }),
+  priorityScore: integer('priority_score').default(0).notNull(),
   status: text('status').notNull(),
+  skipReason: text('skip_reason'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const waitlistOffers = pgTable('waitlist_offers', {
   id: uuid('id').primaryKey().defaultRandom(),
   waitlistEntryId: uuid('waitlist_entry_id').references(() => waitlistEntries.id, { onDelete: 'cascade' }).notNull(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }),
+  tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'set null' }),
   allocationId: uuid('allocation_id').references(() => tableAllocations.id),
+  offeredStart: timestamp('offered_start', { withTimezone: true }),
+  offeredEnd: timestamp('offered_end', { withTimezone: true }),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   status: text('status').notNull(),
+  version: integer('version').default(1).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const waitlistSkipLogs = pgTable('waitlist_skip_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  waitlistEntryId: uuid('waitlist_entry_id').references(() => waitlistEntries.id, { onDelete: 'cascade' }).notNull(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id, { onDelete: 'cascade' }).notNull(),
+  tableId: uuid('table_id').references(() => restaurantTables.id, { onDelete: 'cascade' }).notNull(),
+  skipReason: text('skip_reason').notNull(),
+  details: jsonb('details').default({}).notNull(),
+  evaluatedAt: timestamp('evaluated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 // ============================================================================
@@ -371,6 +390,43 @@ export const outboxEvents = pgTable('outbox_events', {
   payload: jsonb('payload').notNull(),
   status: text('status').default('PENDING').notNull(),
   attempts: integer('attempts').default(0).notNull(),
+  maxAttempts: integer('max_attempts').default(5).notNull(),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  claimedBy: varchar('claimed_by', { length: 100 }),
+  claimExpiresAt: timestamp('claim_expires_at', { withTimezone: true }),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  sequenceNumber: integer('sequence_number').default(1).notNull(),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id),
+  userId: uuid('user_id').references(() => profiles.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notificationDeliveries = pgTable('notification_deliveries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  outboxEventId: uuid('outbox_event_id').notNull().references(() => outboxEvents.id),
+  recipientId: uuid('recipient_id').notNull(),
+  channel: varchar('channel', { length: 50 }).notNull(),
+  idempotencyKey: varchar('idempotency_key', { length: 255 }),
+  status: varchar('status', { length: 50 }).default('PENDING').notNull(),
+  attempts: integer('attempts').default(1).notNull(),
+  payload: jsonb('payload').default({}).notNull(),
+  lastError: text('last_error'),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const realtimeTopicAuthorizations = pgTable('realtime_topic_authorizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  topic: varchar('topic', { length: 255 }).notNull(),
+  topicType: varchar('topic_type', { length: 50 }).notNull(),
+  userId: uuid('user_id').notNull().references(() => profiles.id),
+  restaurantId: uuid('restaurant_id').references(() => restaurants.id),
+  bookingId: uuid('booking_id').references(() => bookings.id),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

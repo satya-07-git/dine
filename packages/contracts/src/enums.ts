@@ -107,8 +107,41 @@ export enum WaitlistOfferStatus {
   DECLINED = 'DECLINED',
 }
 
+export enum WaitlistSkipReason {
+  CAPACITY_MISMATCH = 'CAPACITY_MISMATCH',
+  PARTY_SIZE_TOO_LARGE = 'PARTY_SIZE_TOO_LARGE',
+  PARTY_SIZE_TOO_SMALL = 'PARTY_SIZE_TOO_SMALL',
+  INTERVAL_CONFLICT = 'INTERVAL_CONFLICT',
+  RESTAURANT_CLOSED = 'RESTAURANT_CLOSED',
+  ENTRY_ALREADY_RESOLVED = 'ENTRY_ALREADY_RESOLVED',
+}
+
 export enum OutboxEventStatus {
   PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
   PUBLISHED = 'PUBLISHED',
   FAILED = 'FAILED',
+  DEAD_LETTER = 'DEAD_LETTER',
+}
+
+export enum NotificationChannel {
+  IN_APP = 'IN_APP',
+  PUSH = 'PUSH',
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  REALTIME_BROADCAST = 'REALTIME_BROADCAST',
+}
+
+export enum NotificationDeliveryStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED',
+  DEAD_LETTER = 'DEAD_LETTER',
+}
+
+export enum RealtimeTopicType {
+  USER = 'USER',
+  RESTAURANT = 'RESTAURANT',
+  BOOKING = 'BOOKING',
 }

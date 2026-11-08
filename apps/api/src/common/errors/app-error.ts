@@ -25,14 +25,14 @@ export class UnauthorizedError extends AppError {
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message: string = 'Access denied for requested resource') {
-    super(message, 403, ErrorCode.FORBIDDEN);
+  constructor(message: string = 'Access denied for requested resource', code: ErrorCode = ErrorCode.FORBIDDEN) {
+    super(message, 403, code);
   }
 }
 
 export class NotFoundError extends AppError {
-  constructor(message: string = 'Resource not found') {
-    super(message, 404, ErrorCode.NOT_FOUND);
+  constructor(message: string = 'Resource not found', code: ErrorCode = ErrorCode.NOT_FOUND) {
+    super(message, 404, code);
   }
 }
 
@@ -43,8 +43,8 @@ export class ConflictError extends AppError {
 }
 
 export class ExpiredError extends AppError {
-  constructor(message: string = 'Requested hold or offer has expired') {
-    super(message, 410, ErrorCode.HOLD_EXPIRED);
+  constructor(message: string = 'Requested hold or offer has expired', code: ErrorCode = ErrorCode.HOLD_EXPIRED) {
+    super(message, 410, code);
   }
 }
 

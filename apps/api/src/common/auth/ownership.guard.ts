@@ -10,7 +10,7 @@ import { DatabaseService } from '../db/database.service';
 import { AuthenticatedUser } from './current-user.decorator';
 
 export const RESOURCE_TYPE_KEY = 'resource_type';
-export const CheckResourceOwnership = (resourceType: 'booking' | 'waitlist' | 'profile') =>
+export const CheckResourceOwnership = (resourceType: 'booking' | 'waitlist' | 'waitlist_offer' | 'profile') =>
   SetMetadata(RESOURCE_TYPE_KEY, resourceType);
 
 @Injectable()
@@ -58,6 +58,8 @@ export class ResourceOwnershipGuard implements CanActivate {
         query = 'SELECT user_id FROM bookings WHERE id = $1';
       } else if (resourceType === 'waitlist') {
         query = 'SELECT user_id FROM waitlist_entries WHERE id = $1';
+      } else if (resourceType === 'waitlist_offer') {
+        query = 'SELECT w.user_id FROM waitlist_offers o JOIN waitlist_entries w ON o.waitlist_entry_id = w.id WHERE o.id = $1';
       }
 
       if (query) {

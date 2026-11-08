@@ -2018,10 +2018,37 @@
         ]
       }
     },
-    "/waitlist/join": {
+    "/waitlist": {
       "post": {
         "operationId": "WaitlistController_joinWaitlist",
         "summary": "Join restaurant waitlist queue",
+        "description": "Enters an authenticated customer into a deterministic FIFO waitlist for requested party size and interval.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Successfully joined waitlist queue"
+          },
+          "400": {
+            "description": "Validation failure: party size or timestamp invalid"
+          },
+          "409": {
+            "description": "Conflict: user already has an active waitlist entry for this slot"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist/join": {
+      "post": {
+        "operationId": "WaitlistController_joinWaitlistAlias",
+        "summary": "Join restaurant waitlist queue (alias)",
         "parameters": [],
         "responses": {
           "201": {
@@ -2042,7 +2069,7 @@
       "get": {
         "operationId": "WaitlistController_getWaitlistEntry",
         "summary": "Get waitlist entry status",
-        "description": "Enforces that a customer cannot access another customer waitlist entry or offer",
+        "description": "Enforces that a customer cannot access another customer waitlist entry or offer.",
         "parameters": [
           {
             "name": "id",
@@ -2055,10 +2082,281 @@
         ],
         "responses": {
           "200": {
-            "description": "Waitlist entry status"
+            "description": "Waitlist entry status and queue position"
           },
           "403": {
             "description": "Forbidden: customer cannot access another waitlist entry"
+          },
+          "404": {
+            "description": "Waitlist entry not found"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "WaitlistController_deleteWaitlistEntry",
+        "summary": "Leave waitlist queue (DELETE alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist/{id}/leave": {
+      "post": {
+        "operationId": "WaitlistController_leaveWaitlist",
+        "summary": "Leave waitlist queue",
+        "description": "Cancels active waiting entry and releases any pending offer.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully left waitlist queue"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist/offers/{id}": {
+      "get": {
+        "operationId": "WaitlistController_getWaitlistOfferAlias",
+        "summary": "Get waitlist offer status (alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist/offers/{id}/accept": {
+      "post": {
+        "operationId": "WaitlistController_acceptOfferAlias",
+        "summary": "Accept waitlist offer (alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist/offers/{id}/decline": {
+      "post": {
+        "operationId": "WaitlistController_declineOfferAlias",
+        "summary": "Decline waitlist offer (alias)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist-offers/{id}": {
+      "get": {
+        "operationId": "WaitlistOffersController_getOffer",
+        "summary": "Get waitlist offer snapshot",
+        "description": "Returns offer deadline, countdown remaining, and deposit requirement.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Waitlist offer snapshot"
+          },
+          "403": {
+            "description": "Forbidden: customer cannot access another customer offer"
+          },
+          "404": {
+            "description": "Waitlist offer not found"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist-offers/{id}/accept": {
+      "post": {
+        "operationId": "WaitlistOffersController_acceptOffer",
+        "summary": "Accept priority waitlist offer",
+        "description": "Explicit customer consent to claim exclusive offered table. Never automatically charges customer.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offer accepted. Booking confirmed or payment pending."
+          },
+          "403": {
+            "description": "Forbidden: customer cannot accept another customer offer"
+          },
+          "409": {
+            "description": "Conflict: offer already resolved or allocation conflict"
+          },
+          "410": {
+            "description": "Expired: offer has expired and cannot be accepted"
+          }
+        },
+        "tags": [
+          "Waitlist"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/waitlist-offers/{id}/decline": {
+      "post": {
+        "operationId": "WaitlistOffersController_declineOffer",
+        "summary": "Decline priority waitlist offer",
+        "description": "Declines exclusive offer and safely cascades promotion to next eligible waiter.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Offer declined and table released."
+          },
+          "403": {
+            "description": "Forbidden: customer cannot decline another customer offer"
           }
         },
         "tags": [
