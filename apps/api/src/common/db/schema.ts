@@ -450,12 +450,41 @@ export const realtimeTopicAuthorizations = pgTable('realtime_topic_authorization
 export const auditLogs = pgTable('audit_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   actorId: uuid('actor_id'),
+  actorRole: varchar('actor_role', { length: 50 }).default('USER'),
   restaurantId: uuid('restaurant_id'),
   action: varchar('action', { length: 100 }).notNull(),
   entityType: varchar('entity_type', { length: 50 }).notNull(),
   entityId: uuid('entity_id').notNull(),
   diff: jsonb('diff'),
+  reason: text('reason'),
   requestId: uuid('request_id'),
   ipAddress: inet('ip_address'),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const supportInterventions = pgTable('support_interventions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ticketId: varchar('ticket_id', { length: 100 }),
+  actorId: uuid('actor_id').notNull(),
+  actorRole: varchar('actor_role', { length: 50 }).default('SUPPORT').notNull(),
+  restaurantId: uuid('restaurant_id'),
+  bookingId: uuid('booking_id'),
+  interventionType: varchar('intervention_type', { length: 50 }).notNull(),
+  reason: text('reason').notNull(),
+  priorState: jsonb('prior_state').notNull(),
+  newState: jsonb('new_state').notNull(),
+  requestId: uuid('request_id'),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const privacyErasureRequests = pgTable('privacy_erasure_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  status: varchar('status', { length: 50 }).notNull(),
+  hasFinancialRecords: boolean('has_financial_records').default(false).notNull(),
+  retainedRecordsSummary: jsonb('retained_records_summary').default({}),
+  anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

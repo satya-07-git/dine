@@ -21,6 +21,8 @@ import {
   RealtimeTopicType,
   ReviewStatus,
   SeatingPreference,
+  SupportInterventionType,
+  PrivacyErasureStatus,
 } from './enums';
 
 export interface HealthResponseDto {
@@ -1159,4 +1161,170 @@ export interface BookingPreferencesStaffResponseDto {
   seating_preference: string;
   allergies: string[];
   special_notes?: string | null;
+}
+
+// ============================================================================
+// EPIC-017 Audit, Support and Privacy Controls DTOs
+// ============================================================================
+
+export interface AuditEnvelopeDto {
+  actor_id?: string | null;
+  actor_role?: string;
+  restaurant_id?: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  reason?: string | null;
+  diff?: Record<string, unknown> | null;
+  request_id?: string | null;
+  ip_address?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AuditLogEntryDto {
+  id: string;
+  actor_id?: string | null;
+  actor_role?: string;
+  restaurant_id?: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  reason?: string | null;
+  diff?: Record<string, unknown> | null;
+  request_id?: string | null;
+  ip_address?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuditLogQueryDto {
+  restaurant_id?: string;
+  action?: string;
+  entity_type?: string;
+  entity_id?: string;
+  actor_id?: string;
+  request_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditLogListResponseDto {
+  total: number;
+  limit: number;
+  offset: number;
+  items: AuditLogEntryDto[];
+}
+
+export interface SupportInterventionRequestDto {
+  booking_id?: string;
+  restaurant_id?: string;
+  intervention_type: SupportInterventionType | string;
+  reason: string;
+  ticket_id?: string;
+  override_status?: string;
+  compensation_minor?: number;
+  notes?: string;
+}
+
+export interface SupportInterventionResponseDto {
+  id: string;
+  ticket_id?: string | null;
+  actor_id: string;
+  actor_role: string;
+  restaurant_id?: string | null;
+  booking_id?: string | null;
+  intervention_type: SupportInterventionType | string;
+  reason: string;
+  prior_state: Record<string, unknown>;
+  new_state: Record<string, unknown>;
+  request_id?: string | null;
+  created_at: string;
+  message: string;
+}
+
+export interface SupportIncidentTraceDto {
+  booking_id: string;
+  restaurant_id: string;
+  customer_id?: string | null;
+  status: string;
+  dining_period?: {
+    start: string;
+    end: string;
+  } | null;
+  allocations: Array<{
+    id: string;
+    table_id: string;
+    status: string;
+    dining_period?: string;
+  }>;
+  status_events: Array<{
+    id: string;
+    from_status: string;
+    to_status: string;
+    actor_id?: string | null;
+    actor_role?: string;
+    reason?: string | null;
+    sequence_number: number;
+    created_at: string;
+  }>;
+  payment_attempts: Array<{
+    id: string;
+    status: string;
+    amount_minor: number;
+    currency: string;
+    reconciliation_status?: string;
+    gateway_order_id?: string | null;
+    created_at: string;
+  }>;
+  refunds: Array<{
+    id: string;
+    amount_minor: number;
+    status: string;
+    reason?: string | null;
+    created_at: string;
+  }>;
+  notifications: Array<{
+    id: string;
+    channel: string;
+    status: string;
+    created_at: string;
+  }>;
+  audit_logs: AuditLogEntryDto[];
+  interventions: SupportInterventionResponseDto[];
+}
+
+export interface IncidentExportRequestDto {
+  booking_id: string;
+  reason: string;
+  format?: 'JSON' | 'CSV';
+  ticket_id?: string;
+}
+
+export interface IncidentExportResponseDto {
+  export_id: string;
+  booking_id: string;
+  exported_at: string;
+  exported_by: string;
+  reason: string;
+  ticket_id?: string | null;
+  redacted_evidence: SupportIncidentTraceDto;
+  checksum_sha256: string;
+}
+
+export interface PrivacyErasureRequestDto {
+  user_id?: string;
+  reason?: string;
+}
+
+export interface PrivacyErasureResponseDto {
+  request_id: string;
+  user_id: string;
+  status: PrivacyErasureStatus | string;
+  has_financial_records: boolean;
+  profile_anonymized: boolean;
+  preferences_deleted: boolean;
+  favorites_deleted: boolean;
+  financial_records_retained_count: number;
+  audit_evidence_retained_count: number;
+  message: string;
 }

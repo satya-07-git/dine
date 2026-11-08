@@ -3689,6 +3689,196 @@
           }
         ]
       }
+    },
+    "/support/audit-logs": {
+      "get": {
+        "operationId": "AuditSupportController_getAuditLogs",
+        "summary": "Search immutable audit logs",
+        "description": "Retrieves append-only audit trail records with actor, action, diff, and request correlation. Scoped to restaurant operators for their venue, or global for platform support.",
+        "parameters": [
+          {
+            "name": "actor_id",
+            "required": false,
+            "in": "query",
+            "description": "Filter by actor UUID",
+            "schema": {}
+          },
+          {
+            "name": "entity_id",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity UUID",
+            "schema": {}
+          },
+          {
+            "name": "entity_type",
+            "required": false,
+            "in": "query",
+            "description": "Filter by entity type (e.g. BOOKING)",
+            "schema": {}
+          },
+          {
+            "name": "action",
+            "required": false,
+            "in": "query",
+            "description": "Filter by action name",
+            "schema": {}
+          },
+          {
+            "name": "restaurant_id",
+            "required": false,
+            "in": "query",
+            "description": "Filter by restaurant UUID",
+            "schema": {}
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit log records retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: foreign tenant log access rejected"
+          }
+        },
+        "tags": [
+          "Audit, Support & Privacy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/support/bookings/{bookingId}/trace": {
+      "get": {
+        "operationId": "AuditSupportController_getIncidentTrace",
+        "summary": "Get end-to-end incident trace across booking lifecycle",
+        "description": "Aggregates allocations, payment attempts, sequenced status events, notifications, and immutable audit logs for operational and support investigation.",
+        "parameters": [
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Complete incident trace retrieved"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: unauthorized to inspect booking trace"
+          },
+          "404": {
+            "description": "Booking not found"
+          }
+        },
+        "tags": [
+          "Audit, Support & Privacy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/support/interventions": {
+      "post": {
+        "operationId": "AuditSupportController_applySupportIntervention",
+        "summary": "Execute controlled platform support intervention",
+        "description": "Performs audited support correction (e.g. status correction, emergency release). Mandates explicit justification reason, captures prior state, and appends immutable audit records (AC3).",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Support intervention executed and audited"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: caller lacks SUPPORT privileges"
+          },
+          "422": {
+            "description": "Unprocessable: audit justification reason missing"
+          }
+        },
+        "tags": [
+          "Audit, Support & Privacy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/support/export/incident": {
+      "post": {
+        "operationId": "AuditSupportController_exportIncidentEvidence",
+        "summary": "Export certified sanitized incident evidence package",
+        "description": "Generates evidence package for dispute resolution with SHA-256 checksum. Automatically redacts payment secrets, customer PII, and credentials (AC4).",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Sanitized evidence export generated"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: export restricted to support/admins"
+          },
+          "422": {
+            "description": "Unprocessable: export reason required"
+          }
+        },
+        "tags": [
+          "Audit, Support & Privacy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/support/privacy/erasure-request": {
+      "post": {
+        "operationId": "AuditSupportController_processPrivacyErasure",
+        "summary": "Process customer privacy erasure / Right-to-be-Forgotten request",
+        "description": "Enforces data-retention vs privacy decisions (POL-017 / GATE-006). Deletes non-financial engagement artifacts while preserving statutory financial/audit records via profile anonymization (AC5).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Privacy erasure evaluated and executed"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden: cannot erase foreign identity"
+          }
+        },
+        "tags": [
+          "Audit, Support & Privacy"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -3753,6 +3943,10 @@
     {
       "name": "Customer Engagement",
       "description": "Customer favorites, verified dining reviews, and dining preferences"
+    },
+    {
+      "name": "Audit, Support & Privacy",
+      "description": "Audit logs, support interventions, incident traces, and privacy controls"
     }
   ],
   "servers": [],

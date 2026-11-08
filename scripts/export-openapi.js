@@ -36,6 +36,7 @@ async function generateOpenApiSpec() {
     .addTag('Notifications & Realtime', 'Transactional outbox worker, topic authorization, and status delivery')
     .addTag('Dining Experiences & Packages', 'Restaurant packages, tasting menus, and celebration options')
     .addTag('Customer Engagement', 'Customer favorites, verified dining reviews, and dining preferences')
+    .addTag('Audit, Support & Privacy', 'Audit logs, support interventions, incident traces, and privacy controls')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

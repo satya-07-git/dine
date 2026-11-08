@@ -18,6 +18,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { OwnerOperationsModule } from './modules/owner-operations/owner-operations.module';
 import { PackagesModule } from './modules/packages/packages.module';
 import { CustomerEngagementModule } from './modules/customer-engagement/customer-engagement.module';
+import { AuditSupportModule } from './modules/audit-support/audit-support.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { CustomerEngagementModule } from './modules/customer-engagement/customer
     OwnerOperationsModule,
     PackagesModule,
     CustomerEngagementModule,
+    AuditSupportModule,
   ],
 })
 export class AppModule implements NestModule {

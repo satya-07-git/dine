@@ -255,3 +255,14 @@ INSERT INTO reviews (id, restaurant_id, booking_id, user_id, rating, title, comm
 VALUES
     ('99000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 5, 'Exceptional Dining Experience', 'The truffle naan bites and ambiance were extraordinary! Highly recommend.', 'PUBLISHED', 'Thank you Alice for the wonderful feedback! Looking forward to welcoming you back.', '2026-11-06 10:00:00+00')
 ON CONFLICT (booking_id) DO NOTHING;
+
+-- 15. Audit Logs & Controlled Support Interventions (EPIC-017)
+INSERT INTO audit_logs (id, actor_id, actor_role, restaurant_id, action, entity_type, entity_id, diff, request_id, reason)
+VALUES
+    ('aa000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'OWNER', 'b0000000-0000-0000-0000-000000000001', 'UPDATE_POLICY', 'RESTAURANT', 'b0000000-0000-0000-0000-000000000001', '{"policy_mode": {"from": "FREE_RESERVATION", "to": "DEPOSIT_REQUIRED"}}'::jsonb, 'ee000000-0000-0000-0000-000000000001', 'Annual commercial policy review')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO support_interventions (id, ticket_id, actor_id, actor_role, restaurant_id, booking_id, intervention_type, reason, prior_state, new_state, request_id)
+VALUES
+    ('bb000000-0000-0000-0000-000000000001', 'TICKET-4891', 'a0000000-0000-0000-0000-000000000001', 'SUPPORT', 'b0000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'DISPUTE_INVESTIGATION', 'Investigate late bank webhook reconciliation failure', '{"status": "CONFIRMED"}'::jsonb, '{"status": "CONFIRMED", "investigated": true}'::jsonb, 'ee000000-0000-0000-0000-000000000002')
+ON CONFLICT (id) DO NOTHING;
