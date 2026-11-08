@@ -251,6 +251,7 @@ export class ReservationsService {
     const endpoint = 'POST /booking-holds';
     const scopeKey = computeScopeKey(userId, endpoint, idempotencyKey.trim());
     const normalizedPayload = {
+      package_id: dto.package_id || null,
       party_size: dto.party_size,
       requested_start: dto.requested_start,
       restaurant_id: dto.restaurant_id,
@@ -347,10 +348,62 @@ export class ReservationsService {
         );
       }
 
+      let effectiveDurationMin = rest.default_duration_min;
+      let effectiveDepositAmountMinor = rest.deposit_amount_minor;
+      let packageSnapshot: any = null;
+
+      if (dto.package_id) {
+        const pkgRes = await client.query(
+          `SELECT id, restaurant_id, name, slug, description, price_minor, currency,
+                  duration_min, min_party_size, max_party_size, is_published, version,
+                  terms_and_conditions
+           FROM packages
+           WHERE id = $1 FOR SHARE`,
+          [dto.package_id]
+        );
+        if (pkgRes.rows.length === 0 || !pkgRes.rows[0].is_published) {
+          throw new NotFoundError(`Package ${dto.package_id} not found or inactive`, ErrorCode.PACKAGE_NOT_FOUND);
+        }
+        const pkg = pkgRes.rows[0];
+
+        // AC1: Every package belongs to the requested restaurant
+        if (pkg.restaurant_id !== dto.restaurant_id) {
+          throw new ForbiddenError(
+            `Package ${dto.package_id} does not belong to restaurant ${dto.restaurant_id}`,
+            ErrorCode.PACKAGE_RESTAURANT_MISMATCH
+          );
+        }
+
+        // Capacity bounds check
+        if (dto.party_size < pkg.min_party_size || dto.party_size > pkg.max_party_size) {
+          throw new ConflictError(
+            `Party size ${dto.party_size} is outside package bounds (${pkg.min_party_size}-${pkg.max_party_size})`,
+            ErrorCode.PACKAGE_PARTY_SIZE_EXCEEDED
+          );
+        }
+
+        // AC3: Duration and price derived strictly from server package terms
+        effectiveDurationMin = Number(pkg.duration_min) || rest.default_duration_min;
+        if (Number(pkg.price_minor) > 0) {
+          effectiveDepositAmountMinor = Number(pkg.price_minor);
+        }
+
+        packageSnapshot = {
+          id: pkg.id,
+          package_id: pkg.id,
+          name: pkg.name,
+          price_minor: Number(pkg.price_minor),
+          currency: pkg.currency,
+          duration_min: Number(pkg.duration_min),
+          version: Number(pkg.version),
+          terms_and_conditions: pkg.terms_and_conditions,
+        };
+      }
+
       // 2.4 Server Interval & Buffer Calculation
       const interval = calculateDiningInterval(
         dto.requested_start,
-        rest.default_duration_min,
+        effectiveDurationMin,
         rest.turnover_buffer_min,
         rest.timezone
       );
@@ -423,18 +476,19 @@ export class ReservationsService {
       const expiresAt = calculateHoldExpiry(now, 15);
       const policySnapshot = {
         policy_mode: rest.policy_mode,
-        deposit_amount_minor: rest.deposit_amount_minor,
+        deposit_amount_minor: effectiveDepositAmountMinor,
         deposit_currency: rest.deposit_currency,
         policy_version: rest.policy_version,
-        default_duration_min: rest.default_duration_min,
+        default_duration_min: effectiveDurationMin,
         turnover_buffer_min: rest.turnover_buffer_min,
+        package_id: dto.package_id || null,
       };
 
       let bookingId: string;
       try {
         const bookingInsert = await client.query(
-          `INSERT INTO bookings (id, user_id, restaurant_id, party_size, requested_start, dining_period, status, policy_snapshot) 
-           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::tstzrange, $6, $7) 
+          `INSERT INTO bookings (id, user_id, restaurant_id, party_size, requested_start, dining_period, status, policy_snapshot, package_id, package_snapshot) 
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, $5::tstzrange, $6, $7, $8, $9) 
            RETURNING id`,
           [
             userId,
@@ -444,6 +498,8 @@ export class ReservationsService {
             tstzrangeSql,
             'HOLD_ACTIVE',
             JSON.stringify(policySnapshot),
+            dto.package_id || null,
+            JSON.stringify(packageSnapshot || {}),
           ]
         );
         bookingId = bookingInsert.rows[0].id;
@@ -541,9 +597,10 @@ export class ReservationsService {
         server_time: now.toISOString(),
         deposit: {
           policy_mode: rest.policy_mode,
-          amount_minor: rest.deposit_amount_minor,
+          amount_minor: effectiveDepositAmountMinor,
           currency: rest.deposit_currency,
         },
+        package: packageSnapshot,
       };
 
       // 2.12 Persist Idempotency Record
@@ -587,7 +644,8 @@ export class ReservationsService {
          b.restaurant_id,
          b.party_size,
          b.status AS booking_status,
-         b.policy_snapshot
+         b.policy_snapshot,
+         b.package_snapshot
        FROM table_allocations a
        JOIN bookings b ON b.id = a.booking_id
        WHERE a.id = $1`,
@@ -613,6 +671,8 @@ export class ReservationsService {
 
     const bounds = parseRangeBounds(row.dining_period);
     const snap = typeof row.policy_snapshot === 'string' ? JSON.parse(row.policy_snapshot) : row.policy_snapshot || {};
+    const snapPkg = typeof row.package_snapshot === 'string' ? JSON.parse(row.package_snapshot) : row.package_snapshot;
+    const pkgObj = snapPkg && Object.keys(snapPkg).length > 0 ? snapPkg : null;
 
     return {
       hold_id: row.hold_id,
@@ -628,6 +688,7 @@ export class ReservationsService {
         amount_minor: snap.deposit_amount_minor || 0,
         currency: snap.deposit_currency || 'INR',
       },
+      package: pkgObj,
     };
   }
 

@@ -31,9 +31,11 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 | **POL-008** | Operations | Lateness grace period & auto-release | 15 minutes grace period from `requested_start`; staff may mark `NO_SHOW` after 15m | **Approved (v1.0)** | Operations Lead | Backend Architect | Required before Operations (EPIC-014) |
 | **POL-009** | Operations | Walk-in reservations | Walk-in creates immediate `CONFIRMED` booking via same allocation core; respects exclusion locks | **Approved (v1.0)** | Operations Lead | Core Engine Lead | Required before Operations (EPIC-014) |
 | **POL-010** | Operations | Floor layout updates & table retirement | Existing bookings retain historic table snapshot; retired tables hidden from future ranges | **Approved (v1.0)** | Restaurant Ops Lead | Core Engine Lead | Required before Floor Plans (EPIC-006) |
+| **POL-011** | Dining Experiences | Package party capacity, server duration, & deposit calculation | min_party_size <= party_size <= max_party_size; duration and deposit strictly server-derived from package terms | **Approved (v1.0)** | Head of Hospitality | Backend Architect | Required before Packages (EPIC-015) |
 | **GATE-001** | Refunds | Cancellation cutoff & refund deduction schedule | **UNRESOLVED**: Tiered refund policy (e.g. 100% refund > 24h, 50% 12-24h, 0% < 12h) vs flat cancellation fee | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Payments Engineer | **BLOCKS Live Payment Release** |
 | **GATE-002** | Finance | Merchant settlement fee deduction on cancellation | **UNRESOLVED**: Who absorbs payment gateway processing fees (2% + GST) on refund (Dine, Restaurant, or Guest) | **UNRESOLVED (GATE)** | Finance Controller | Payment Engine Lead | **BLOCKS Live Payment Release** |
 | **GATE-003** | Dispute | Manual review SLA for late UPI capture disputes | **UNRESOLVED**: Max time window for operational review of double-allocated or orphaned captures (24h target) | **UNRESOLVED (GATE)** | Customer Support Lead | Platform Ops Lead | **BLOCKS Live Payment Release** |
+| **GATE-004** | Packages | Dynamic pricing, multi-table joined parties, & split package billing | **UNRESOLVED**: Advanced event commerce, dynamic pricing, and multi-table package allocation | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Core Engine Lead | **BLOCKS Live Package Commerce** |
 
 ---
 
@@ -41,7 +43,7 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 
 > [!IMPORTANT]
 > In accordance with Acceptance Criterion 3 of EPIC-001 and Blueprint §19.1:
-> **No live financial transactions may be processed until GATE-001, GATE-002, and GATE-003 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
+> **No live financial transactions may be processed until GATE-001, GATE-002, GATE-003, and GATE-004 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
 
 ### Gate Detail: GATE-001 (Cancellation & Refund Rules)
 - **Current Status**: UNRESOLVED.
@@ -61,6 +63,11 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 - **Current Status**: UNRESOLVED.
 - **Problem**: When a UPI payment is captured after a 5-minute hold expires and the table has already been safely reallocated to another customer or waitlist entry, how is the guest notified and compensated?
 - **Resolution Requirement**: Automated refund workflow combined with support operational playbook (SLO <= 2 hours for automated refund issuance).
+
+### Gate Detail: GATE-004 (Dynamic & Multi-Table Package Commerce Gate)
+- **Current Status**: UNRESOLVED.
+- **Problem**: Does package booking permit dynamic surcharge pricing, multi-table joined event seating, or split bill deposits?
+- **Resolution Requirement**: Multi-table inventory and complex event commerce are deferred beyond the one-table MVP architecture (ADR-003). Any attempt to pass client-defined prices or multi-table package requests must remain blocked at the API gateway until formally architected.
 
 ---
 

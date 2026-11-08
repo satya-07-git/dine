@@ -38,6 +38,7 @@ export interface CreateHoldRequestDto {
   table_id: string;
   party_size: number;
   requested_start: string; // ISO 8601 UTC
+  package_id?: string;
 }
 
 export interface HoldResponseDto {
@@ -383,6 +384,7 @@ export interface BookingHoldResponseDto {
   expires_at: string;
   server_time: string;
   deposit: DepositSummaryDto;
+  package?: PackageSnapshotDto | null;
 }
 
 export interface CancelHoldResponseDto {
@@ -951,4 +953,69 @@ export interface TableBlockResponseDto {
 export interface TableBlockListQueryDto {
   table_id?: string;
   date?: string;
+}
+
+// ============================================================================
+// EPIC-015 Dining Experiences & Package Contracts DTOs
+// ============================================================================
+
+export interface PackageSnapshotDto {
+  id: string;
+  package_id?: string;
+  name: string;
+  price_minor: number;
+  currency: string;
+  duration_min: number;
+  version: number;
+  terms_and_conditions?: string | null;
+}
+
+export interface RestaurantPackageDto {
+  id: string;
+  restaurant_id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  price_minor: number;
+  currency: string;
+  duration_min: number;
+  min_party_size: number;
+  max_party_size: number;
+  is_published: boolean;
+  version: number;
+  terms_and_conditions?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageListResponseDto {
+  restaurant_id: string;
+  count: number;
+  packages: RestaurantPackageDto[];
+}
+
+export interface CreatePackageRequestDto {
+  name: string;
+  slug?: string;
+  description?: string;
+  price_minor: number;
+  currency?: string;
+  duration_min: number;
+  min_party_size: number;
+  max_party_size: number;
+  is_published?: boolean;
+  terms_and_conditions?: string;
+}
+
+export interface UpdatePackageRequestDto {
+  name?: string;
+  slug?: string;
+  description?: string;
+  price_minor?: number;
+  currency?: string;
+  duration_min?: number;
+  min_party_size?: number;
+  max_party_size?: number;
+  is_published?: boolean;
+  terms_and_conditions?: string;
 }

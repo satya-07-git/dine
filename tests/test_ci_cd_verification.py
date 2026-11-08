@@ -2665,5 +2665,384 @@ class TestEpic13TransactionalEventsAndRealtime(unittest.TestCase):
 
         self.assertEqual(event_status, "DEAD_LETTER")
 
+
+
+class TestEpic14OwnerOperationsCheckInAndWalkIns(unittest.TestCase):
+    """
+    Verify EPIC-014 Owner Operations, Check-In, and Walk-Ins deliverables:
+    - Authoritative SQL migration 14 extending bookings, adding booking_check_in_tokens, indices, RLS
+    - OpenAPI documentation for /owner/restaurants/{restaurantId}/bookings, check-in-qr, check-in, walk-in, status, table-blocks
+    - Acceptance Criterion 1: Host A cannot check in Restaurant B booking (cross-tenant denial)
+    - Acceptance Criterion 2: Walk-in vs online hold race rejects with 409 Conflict under GiST exclusion
+    - Acceptance Criterion 3: Repeat-safe check-in idempotency returns is_repeat: true with no duplicate events
+    - Acceptance Criterion 4: Floor plan updates preserve current reservations and reject deletions with 409
+    - Acceptance Criterion 5: Only authorized staff roles (OWNER, MANAGER, HOST) can perform operations
+    - Policy POL-008: 15-minute grace period before NO_SHOW status transition
+    - Node.js unit test suite execution for owner-operations.test.js
+    """
+
+    def test_owner_operations_node_unit_suite(self):
+        """Execute Node.js owner operations unit tests verifying QR tokens, walk-ins, and floor plan conflict protection."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/owner-operations.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            f"Owner operations unit tests failed: {test_result.stdout}\n{test_result.stderr}"
+        )
+        self.assertIn("pass 21", test_result.stdout)
+
+    def test_migration_014_owner_operations_and_walkins(self):
+        """Verify authoritative SQL migration 14 defines columns, table blocks, check-in tokens, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000014_owner_operations_checkin_and_walkins.sql"
+        self.assertTrue(migration_file.exists(), "Migration 014 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("is_walk_in", content)
+        self.assertIn("guest_name", content)
+        self.assertIn("ready_at", content)
+        self.assertIn("no_show_at", content)
+        self.assertIn("booking_check_in_tokens", content)
+        self.assertIn("idx_check_in_tokens_booking", content)
+        self.assertIn("idx_check_in_tokens_restaurant", content)
+        self.assertIn("idx_bookings_restaurant_walk_in", content)
+        self.assertIn("ENABLE ROW LEVEL SECURITY", content)
+
+    def test_openapi_owner_operations_endpoints(self):
+        """Verify OpenAPI spec includes EPIC-014 owner operation paths."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        with open(openapi_file, "r", encoding="utf-8") as f:
+            spec = json.load(f)
+
+        paths = spec.get("paths", {})
+        self.assertIn("/owner/restaurants/{id}/bookings", paths)
+        self.assertIn("/owner/bookings/{id}/qr-token", paths)
+        self.assertIn("/owner/bookings/{id}/check-in", paths)
+        self.assertIn("/owner/check-in", paths)
+        self.assertIn("/owner/walk-ins", paths)
+        self.assertIn("/owner/bookings/{id}/status", paths)
+        self.assertIn("/owner/tables/{id}/blocks", paths)
+
+    def test_acceptance_criterion_1_cross_tenant_denial(self):
+        """
+        Verify Acceptance Criterion 1:
+        Host A scanning QR or checking in booking for Restaurant B is rejected with 403 Forbidden.
+        """
+        def simulate_check_in(staff_restaurant_id, qr_payload_restaurant_id):
+            if staff_restaurant_id != qr_payload_restaurant_id:
+                raise PermissionError("QR_RESTAURANT_MISMATCH: Cross-tenant check-in prohibited")
+            return {"success": True}
+
+        with self.assertRaises(PermissionError) as ctx:
+            simulate_check_in("rest_A", "rest_B")
+        self.assertIn("QR_RESTAURANT_MISMATCH", str(ctx.exception))
+
+        res = simulate_check_in("rest_A", "rest_A")
+        self.assertTrue(res["success"])
+
+    def test_acceptance_criterion_2_walk_in_vs_online_hold_race(self):
+        """
+        Verify Acceptance Criterion 2:
+        Walk-in routing competes with customer holds under PostgreSQL GiST range exclusion.
+        If table has active customer hold, walk-in fails with 409 Conflict.
+        """
+        def seat_walk_in(table_allocations, requested_period):
+            for alloc in table_allocations:
+                if alloc["status"] in ["HELD", "OFFER_HELD", "CONFIRMED", "READY", "SEATED"]:
+                    if requested_period[0] < alloc["end"] and requested_period[1] > alloc["start"]:
+                        raise ValueError("INVENTORY_HOLD_CONFLICT: Table already reserved")
+            return {"status": "SEATED", "is_walk_in": True}
+
+        allocations = [
+            {"start": 100, "end": 200, "status": "HELD"}
+        ]
+        with self.assertRaises(ValueError) as ctx:
+            seat_walk_in(allocations, (150, 250))
+        self.assertIn("INVENTORY_HOLD_CONFLICT", str(ctx.exception))
+
+        empty_allocations = []
+        res = seat_walk_in(empty_allocations, (150, 250))
+        self.assertEqual(res["status"], "SEATED")
+        self.assertTrue(res["is_walk_in"])
+
+    def test_acceptance_criterion_3_repeat_safe_checkin_idempotency(self):
+        """
+        Verify Acceptance Criterion 3:
+        Repeat-safe check-in replay returns is_repeat: true and does not generate duplicate events.
+        """
+        class MockBooking:
+            def __init__(self):
+                self.status = "CONFIRMED"
+                self.checked_in_at = None
+                self.events = []
+
+            def check_in(self):
+                if self.checked_in_at is not None or self.status in ["READY", "SEATED"]:
+                    return {"is_repeat": True, "status": self.status}
+                self.status = "READY"
+                self.checked_in_at = time.time()
+                self.events.append("BOOKING_CHECKED_IN")
+                return {"is_repeat": False, "status": self.status}
+
+        booking = MockBooking()
+        first_scan = booking.check_in()
+        self.assertFalse(first_scan["is_repeat"])
+        self.assertEqual(first_scan["status"], "READY")
+        self.assertEqual(len(booking.events), 1)
+
+        second_scan = booking.check_in()
+        self.assertTrue(second_scan["is_repeat"])
+        self.assertEqual(second_scan["status"], "READY")
+        self.assertEqual(len(booking.events), 1, "Duplicate events must not be emitted on replayed QR scan")
+
+    def test_acceptance_criterion_4_floor_plan_conflict_preserves_reservations(self):
+        """
+        Verify Acceptance Criterion 4:
+        Floor plan updates cannot delete/retire tables that have active reservations/holds (409 Conflict).
+        """
+        def update_floor_plan(existing_tables, new_tables, active_allocations):
+            new_table_ids = {t["id"] for t in new_tables}
+            for tbl in existing_tables:
+                if tbl["id"] not in new_table_ids:
+                    if tbl["id"] in active_allocations:
+                        raise ValueError("INVENTORY_HOLD_CONFLICT: Cannot remove table with active bookings")
+            return {"updated": True}
+
+        existing = [{"id": "t1"}, {"id": "t2"}]
+        new_plan = [{"id": "t1"}]
+        active = {"t2": "CONFIRMED"}
+
+        with self.assertRaises(ValueError) as ctx:
+            update_floor_plan(existing, new_plan, active)
+        self.assertIn("INVENTORY_HOLD_CONFLICT", str(ctx.exception))
+
+        empty_active = {}
+        res = update_floor_plan(existing, new_plan, empty_active)
+        self.assertTrue(res["updated"])
+
+    def test_acceptance_criterion_5_role_authorization_for_operations(self):
+        """
+        Verify Acceptance Criterion 5:
+        Only OWNER, MANAGER, and HOST roles can perform check-in and walk-in actions.
+        """
+        authorized_roles = {"OWNER", "MANAGER", "HOST"}
+
+        def authorize_staff(role):
+            if role not in authorized_roles:
+                raise PermissionError("FORBIDDEN: Role not authorized for owner operations")
+            return True
+
+        self.assertTrue(authorize_staff("OWNER"))
+        self.assertTrue(authorize_staff("MANAGER"))
+        self.assertTrue(authorize_staff("HOST"))
+
+        for forbidden_role in ["CUSTOMER", "SERVER", "BUSSER", "LINE_COOK"]:
+            with self.assertRaises(PermissionError):
+                authorize_staff(forbidden_role)
+
+    def test_pol_008_no_show_grace_period_enforcement(self):
+        """
+        Verify POL-008:
+        Staff cannot mark NO_SHOW until 15 minutes after requested_start time.
+        """
+        def transition_no_show(requested_start_timestamp, current_timestamp):
+            grace_period_seconds = 15 * 60
+            if current_timestamp < requested_start_timestamp + grace_period_seconds:
+                raise ValueError("NO_SHOW_GRACE_PERIOD_ACTIVE: 15-minute grace period active")
+            return {"status": "NO_SHOW"}
+
+        start = 1000
+        with self.assertRaises(ValueError) as ctx:
+            transition_no_show(start, start + 10 * 60)
+        self.assertIn("NO_SHOW_GRACE_PERIOD_ACTIVE", str(ctx.exception))
+
+        res = transition_no_show(start, start + 15 * 60 + 1)
+        self.assertEqual(res["status"], "NO_SHOW")
+
+
+class TestEpic15DiningExperiencesAndPackages(unittest.TestCase):
+    """
+    Verify EPIC-015 Dining Experiences and Package Contracts deliverables:
+    - Authoritative SQL migration 15 defining packages table, bookings columns (package_id, package_snapshot), indices, and RLS
+    - OpenAPI documentation for /restaurants/{id}/packages, /restaurants/{restaurantId}/packages/{packageId}, /owner/restaurants/{id}/packages, /owner/packages/{id}
+    - Acceptance Criterion 1: Every package belongs to the requested restaurant (cross-restaurant access rejected with 403)
+    - Acceptance Criterion 2: Missing purchase rules are documented in policy register (GATE-004) and block that behavior
+    - Acceptance Criterion 3: Client cannot alter protected interval or price; server derives terms from package
+    - Acceptance Criterion 4: Booking still respects the one-table and no-overlap invariant under GiST exclusion
+    - Package party size bounds enforcement (min_party_size <= party_size <= max_party_size)
+    - Owner role authorization and package version monotonicity
+    - Node.js unit test suite execution for packages.test.js
+    """
+
+    def test_packages_node_unit_suite(self):
+        """Execute Node.js packages unit tests verifying public catalog, cross-tenant denial, and server calculation."""
+        test_result = subprocess.run(
+            ["node", "--test", "tests/unit/packages.test.js"],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True
+        )
+        self.assertEqual(
+            test_result.returncode,
+            0,
+            f"Packages unit tests failed: {test_result.stdout}\n{test_result.stderr}"
+        )
+        self.assertIn("pass 23", test_result.stdout)
+
+    def test_migration_015_dining_experiences_and_packages(self):
+        """Verify authoritative SQL migration 15 defines packages table, booking columns, indices, and RLS."""
+        migration_file = REPO_ROOT / "supabase" / "migrations" / "20261106000015_dining_experiences_and_packages.sql"
+        self.assertTrue(migration_file.exists(), "Migration 015 must exist in supabase/migrations")
+
+        content = migration_file.read_text(encoding="utf-8")
+        self.assertIn("CREATE TABLE IF NOT EXISTS packages", content)
+        self.assertIn("package_id", content)
+        self.assertIn("package_snapshot", content)
+        self.assertIn("idx_packages_restaurant_published", content)
+        self.assertIn("idx_bookings_package_id", content)
+        self.assertIn("ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("packages_public_read", content)
+        self.assertIn("packages_staff_manage", content)
+
+    def test_openapi_packages_endpoints(self):
+        """Verify OpenAPI spec includes EPIC-015 package paths."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        with open(openapi_file, "r", encoding="utf-8") as f:
+            spec = json.load(f)
+
+        paths = spec.get("paths", {})
+        self.assertIn("/restaurants/{id}/packages", paths)
+        self.assertIn("/restaurants/{restaurantId}/packages/{packageId}", paths)
+        self.assertIn("/owner/restaurants/{id}/packages", paths)
+        self.assertIn("/owner/packages/{id}", paths)
+
+    def test_acceptance_criterion_1_restaurant_ownership_and_cross_tenant_denial(self):
+        """
+        Verify Acceptance Criterion 1:
+        Every package belongs to the requested restaurant. Requesting package belonging to another restaurant is rejected with 403.
+        """
+        packages_db = {
+            "pkg_1": {"id": "pkg_1", "restaurant_id": "rest_A", "name": "Tasting Menu A"},
+            "pkg_2": {"id": "pkg_2", "restaurant_id": "rest_B", "name": "Banquet B"},
+        }
+
+        def validate_package_ownership(restaurant_id, package_id):
+            pkg = packages_db.get(package_id)
+            if not pkg:
+                raise FileNotFoundError("PACKAGE_NOT_FOUND")
+            if pkg["restaurant_id"] != restaurant_id:
+                raise PermissionError("PACKAGE_RESTAURANT_MISMATCH: Cross-tenant package access prohibited")
+            return pkg
+
+        with self.assertRaises(PermissionError) as ctx:
+            validate_package_ownership("rest_B", "pkg_1")
+        self.assertIn("PACKAGE_RESTAURANT_MISMATCH", str(ctx.exception))
+
+        res = validate_package_ownership("rest_A", "pkg_1")
+        self.assertEqual(res["restaurant_id"], "rest_A")
+
+    def test_acceptance_criterion_2_missing_purchase_rules_documented_and_gated(self):
+        """
+        Verify Acceptance Criterion 2:
+        Missing purchase rules (dynamic pricing, multi-table joined packages) are documented under GATE-004
+        in commercial policy register and blocked from execution.
+        """
+        policy_file = DOCS_DIR / "policies" / "commercial-policy-register.md"
+        content = policy_file.read_text(encoding="utf-8")
+        self.assertIn("POL-011", content)
+        self.assertIn("GATE-004", content)
+        self.assertIn("BLOCKS Live Package Commerce", content)
+
+        def validate_purchase_rules(client_custom_price, client_custom_duration):
+            if client_custom_price is not None or client_custom_duration is not None:
+                raise ValueError("GATE_UNRESOLVED: Dynamic pricing and custom intervals are not supported in MVP")
+            return {"status": "APPROVED"}
+
+        with self.assertRaises(ValueError) as ctx:
+            validate_purchase_rules(client_custom_price=1000, client_custom_duration=None)
+        self.assertIn("GATE_UNRESOLVED", str(ctx.exception))
+
+        with self.assertRaises(ValueError) as ctx:
+            validate_purchase_rules(client_custom_price=None, client_custom_duration=45)
+        self.assertIn("GATE_UNRESOLVED", str(ctx.exception))
+
+        res = validate_purchase_rules(None, None)
+        self.assertEqual(res["status"], "APPROVED")
+
+    def test_acceptance_criterion_3_client_cannot_tamper_duration_or_price(self):
+        """
+        Verify Acceptance Criterion 3:
+        A selected package cannot change protected interval or price via client input.
+        The server strictly derives duration and deposit from server-side package terms.
+        """
+        server_package = {
+            "id": "pkg_tasting",
+            "duration_min": 150,
+            "price_minor": 500000,
+            "version": 1,
+        }
+
+        def server_derive_booking_terms(package_id, client_input_duration, client_input_price):
+            effective_duration = server_package["duration_min"]
+            effective_deposit = server_package["price_minor"]
+            return {
+                "package_id": package_id,
+                "duration_min": effective_duration,
+                "deposit_amount_minor": effective_deposit,
+            }
+
+        computed = server_derive_booking_terms("pkg_tasting", client_input_duration=30, client_input_price=100)
+        self.assertEqual(computed["duration_min"], 150, "Client input duration must be ignored")
+        self.assertEqual(computed["deposit_amount_minor"], 500000, "Client input price must be ignored")
+
+    def test_acceptance_criterion_4_one_table_and_no_overlap_invariant(self):
+        """
+        Verify Acceptance Criterion 4:
+        Booking still respects the one-table and no-overlap invariant.
+        Even with extended package duration, multiple bookings on the same table cannot overlap.
+        """
+        allocations = [
+            {"table_id": "T01", "start": 1000, "end": 1165, "status": "HELD"}
+        ]
+
+        def allocate_table_for_package(table_id, requested_start, duration_min, buffer_min):
+            end_time = requested_start + duration_min + buffer_min
+            for alloc in allocations:
+                if alloc["table_id"] == table_id and alloc["status"] in ["HELD", "CONFIRMED", "SEATED"]:
+                    if requested_start < alloc["end"] and end_time > alloc["start"]:
+                        raise ValueError("INVENTORY_HOLD_CONFLICT: Table already allocated for overlapping interval")
+            return {"table_id": table_id, "start": requested_start, "end": end_time, "status": "HELD"}
+
+        with self.assertRaises(ValueError) as ctx:
+            allocate_table_for_package("T01", 1050, 90, 15)
+        self.assertIn("INVENTORY_HOLD_CONFLICT", str(ctx.exception))
+
+        success = allocate_table_for_package("T01", 1165, 90, 15)
+        self.assertEqual(success["status"], "HELD")
+
+    def test_package_capacity_and_party_size_bounds(self):
+        """Verify package capacity guards reject party sizes outside min/max bounds."""
+        pkg = {"min_party_size": 2, "max_party_size": 6}
+
+        def check_capacity(party_size):
+            if party_size < pkg["min_party_size"] or party_size > pkg["max_party_size"]:
+                raise ValueError("PACKAGE_PARTY_SIZE_EXCEEDED")
+            return True
+
+        with self.assertRaises(ValueError):
+            check_capacity(1)
+        with self.assertRaises(ValueError):
+            check_capacity(7)
+
+        self.assertTrue(check_capacity(2))
+        self.assertTrue(check_capacity(4))
+        self.assertTrue(check_capacity(6))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

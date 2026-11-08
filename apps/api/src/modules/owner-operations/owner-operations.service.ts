@@ -386,9 +386,11 @@ export class OwnerOperationsService {
       // Emit transactional outbox event
       await client.query(
         `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload, status)
-         VALUES ('BOOKING', $1, 'BOOKING_CHECKED_IN', $2, 'PENDING')`,
+         VALUES ($1, $2, $3, $4, 'PENDING')`,
         [
+          'BOOKING',
           b.id,
+          'BOOKING_CHECKED_IN',
           JSON.stringify({
             booking_id: b.id,
             restaurant_id: staffRestaurantId,
@@ -644,9 +646,11 @@ export class OwnerOperationsService {
       // 9. Emit transactional outbox event
       await client.query(
         `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload, status)
-         VALUES ('BOOKING', $1, 'BOOKING_WALK_IN_SEATED', $2, 'PENDING')`,
+         VALUES ($1, $2, $3, $4, 'PENDING')`,
         [
+          'BOOKING',
           bookingId,
+          'BOOKING_WALK_IN_SEATED',
           JSON.stringify({
             booking_id: bookingId,
             allocation_id: allocationId,

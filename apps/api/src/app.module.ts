@@ -16,6 +16,7 @@ import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { BookingStatusModule } from './modules/booking-status/booking-status.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OwnerOperationsModule } from './modules/owner-operations/owner-operations.module';
+import { PackagesModule } from './modules/packages/packages.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { OwnerOperationsModule } from './modules/owner-operations/owner-operatio
     BookingStatusModule,
     NotificationsModule,
     OwnerOperationsModule,
+    PackagesModule,
   ],
 })
 export class AppModule implements NestModule {

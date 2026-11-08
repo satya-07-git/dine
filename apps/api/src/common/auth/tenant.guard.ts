@@ -89,7 +89,10 @@ export class TenantGuard implements CanActivate {
     }
 
     // 3. Check role requirements
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(RESTAURANT_ROLES_KEY, [\n      context.getHandler(),\n      context.getClass(),\n    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(RESTAURANT_ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
 
     if (requiredRoles && requiredRoles.length > 0) {
       if (!requiredRoles.includes(membership.role)) {

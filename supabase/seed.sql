@@ -13,7 +13,12 @@ VALUES
 ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, auth_uid = EXCLUDED.auth_uid;
 
 -- 2. Restaurants (Multi-tenant venues with discovery, policy, and spatial attributes)
-INSERT INTO restaurants (\n    id, name, slug, description, timezone, policy_mode,\n    deposit_amount_minor, deposit_currency, default_duration_min, turnover_buffer_min,\n    policy_version, min_party_size, max_party_size, lead_time_min_minutes, lead_time_max_days,\n    latitude, longitude, is_published, status, price_tier, cover_image_url\n)
+INSERT INTO restaurants (
+    id, name, slug, description, timezone, policy_mode,
+    deposit_amount_minor, deposit_currency, default_duration_min, turnover_buffer_min,
+    policy_version, min_party_size, max_party_size, lead_time_min_minutes, lead_time_max_days,
+    latitude, longitude, is_published, status, price_tier, cover_image_url
+)
 VALUES 
     (
         'b0000000-0000-0000-0000-000000000001', 'The Royal Dine Bistro', 'the-royal-dine-bistro',
@@ -216,4 +221,13 @@ INSERT INTO restaurant_media (id, restaurant_id, url, caption, media_type, is_fe
 VALUES
     ('66000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/interior_main.jpg', 'Main Dining Room Architectural View', 'IMAGE', true, 1),
     ('66000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'https://supabase.local/storage/v1/object/public/restaurant-media/b1/cocktail_bar.jpg', 'Artisanal Mixology Bar', 'IMAGE', false, 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- 13. Dining Experiences & Package Contracts (EPIC-015)
+INSERT INTO packages (id, restaurant_id, name, slug, description, price_minor, currency, duration_min, min_party_size, max_party_size, is_published, version, terms_and_conditions)
+VALUES
+    ('90000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Chef Tasting Experience', 'chef-tasting-experience', 'Seven-course bespoke tasting menu paired with artisanal infusions', 250000, 'INR', 120, 2, 6, true, 1, 'Requires 24h prior cancellation. All party members must participate.'),
+    ('90000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 'Grand Celebration Package', 'grand-celebration-package', 'Celebration dining setup with custom floral centerpiece and champagne toast', 500000, 'INR', 150, 4, 12, true, 1, 'Customized dessert platter included. 48h cancellation window.'),
+    ('90000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Sunset Aperitivo (Draft)', 'sunset-aperitivo-draft', 'Pre-release rooftop cocktail and antipasti package', 180000, 'INR', 90, 2, 4, false, 1, 'Internal pilot testing only.'),
+    ('90000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', 'Royal Amber Banquet', 'royal-amber-banquet', 'Signature royal thali feast with royal court ambiance', 750000, 'INR', 120, 4, 16, true, 1, '100% deposit required at hold creation.')
 ON CONFLICT (id) DO NOTHING;
