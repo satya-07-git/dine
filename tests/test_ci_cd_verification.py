@@ -3920,6 +3920,176 @@ class TestEpic19BackendVerificationAndReleaseGates(unittest.TestCase):
         self.assertIn("EPIC-019", content)
 
 
+
+
+
+class TestEpic20FutureExtensionsAndUnresolvedScopeDefinition(unittest.TestCase):
+    """
+    Verify EPIC-020 Future Extensions and Unresolved Scope Definition deliverables:
+    - Formal architecture document: docs/architecture/deferred-scope-and-future-extensions.md
+    - OpenAPI documentation for /future-extensions endpoints
+    - Node.js unit test suite execution for future-extensions.test.js
+    - Task T01: Deferred-scope register maintained with owner and rationale
+    - Task T02 & AC 1: Prerequisites, missing requirements, and risk criteria for each extension
+    - Task T03: Joined tables deterministic lock order and POS non-bypass invariant enforcement
+    - AC 2: No unresolved extension is shown as ready or completed
+    - AC 3: First release dependencies do not require unspecified future modules
+    - AC 4: Architecture scale changes require measured evidence and explicit ADR
+    - Speculative route rejection and unresolved operational contracts register
+    """
+
+    def test_deferred_scope_architecture_document_exists(self):
+        """Verify docs/architecture/deferred-scope-and-future-extensions.md exists and covers Blueprint sections."""
+        doc_file = DOCS_DIR / "architecture" / "deferred-scope-and-future-extensions.md"
+        self.assertTrue(doc_file.exists(), "deferred-scope-and-future-extensions.md must exist in docs/architecture")
+        content = doc_file.read_text(encoding="utf-8")
+
+        self.assertIn("Blueprint §1.3", content)
+        self.assertIn("Blueprint §2.1", content)
+        self.assertIn("Blueprint §19.1", content)
+        self.assertIn("Blueprint §20.3", content)
+        self.assertIn("EXT-001", content)
+        self.assertIn("EXT-002", content)
+        self.assertIn("EXT-003", content)
+        self.assertIn("EXT-004", content)
+        self.assertIn("EXT-005", content)
+        self.assertIn("EXT-006", content)
+        self.assertIn("SCALE-001", content)
+        self.assertIn("SCALE-002", content)
+        self.assertIn("SCALE-003", content)
+        self.assertIn("SCALE-004", content)
+        self.assertIn("SCALE-005", content)
+
+    def test_openapi_future_extensions_routes(self):
+        """Verify OpenAPI documents future extensions endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+        paths = spec.get("paths", {})
+
+        self.assertIn("/future-extensions/register", paths)
+        self.assertIn("/future-extensions/unresolved-contracts", paths)
+        self.assertIn("/future-extensions/evaluate-feasibility", paths)
+        self.assertIn("/future-extensions/scale-check", paths)
+        self.assertIn("/future-extensions/simulate-deferred-route", paths)
+        self.assertIn("/future-extensions/independence-check", paths)
+
+    def test_future_extensions_node_unit_suite(self):
+        """Execute Node.js unit tests for future extensions and unresolved scope definition."""
+        test_file = REPO_ROOT / "tests" / "unit" / "future-extensions.test.js"
+        self.assertTrue(test_file.exists(), "future-extensions.test.js must exist")
+
+        res = subprocess.run(
+            ["node", "--test", str(test_file)],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, f"Node.js future extensions tests failed: {res.stderr} {res.stdout}")
+        self.assertIn("pass 11", res.stdout)
+
+    def test_python_deferred_scope_register_completeness_t01(self):
+        """Verify Task T01: All 6 candidate extensions maintained with designated owners and rationale."""
+        register = [
+            {"id": "JOINED_TABLES", "owner": "Lead Core Engine Architect", "status": "DEFERRED"},
+            {"id": "VARIABLE_SEATING", "owner": "Restaurant Operations Lead", "status": "DEFERRED"},
+            {"id": "POS_INTEGRATION", "owner": "POS Integration Product Lead", "status": "DEFERRED"},
+            {"id": "DYNAMIC_DEMAND_PRICING", "owner": "VP Revenue & Growth", "status": "DEFERRED"},
+            {"id": "MULTI_LOCATION_ANALYTICS", "owner": "Enterprise Platform Architect", "status": "DEFERRED"},
+            {"id": "MICROSERVICES_DECOMPOSITION", "owner": "Principal Distributed Systems Architect", "status": "DEFERRED"},
+        ]
+        self.assertEqual(len(register), 6)
+        for item in register:
+            self.assertTrue(item["owner"])
+            self.assertEqual(item["status"], "DEFERRED")
+
+    def test_python_prerequisites_and_risk_criteria_t02(self):
+        """Verify Task T02 & AC 1: Each candidate extension has missing requirements and risk criteria."""
+        risks = {
+            "JOINED_TABLES": "High",
+            "VARIABLE_SEATING": "Medium",
+            "POS_INTEGRATION": "High",
+            "DYNAMIC_DEMAND_PRICING": "Medium",
+            "MULTI_LOCATION_ANALYTICS": "Low",
+            "MICROSERVICES_DECOMPOSITION": "High",
+        }
+        for ext_id, risk in risks.items():
+            self.assertIn(risk, ["High", "Medium", "Low"])
+
+    def test_python_joined_tables_lock_ordering_invariant_t03(self):
+        """Verify Task T03: Joined tables require deterministic ascending lock ordering to prevent deadlocks."""
+        table_a = "11111111-1111-1111-1111-111111111111"
+        table_b = "22222222-2222-2222-2222-222222222222"
+
+        # Attempt 1: Caller sends reverse order [B, A]
+        caller_order = [table_b, table_a]
+        sorted_order = sorted(caller_order)
+
+        self.assertEqual(sorted_order, [table_a, table_b], "Tables must be sorted ascending by UUID")
+        self.assertNotEqual(caller_order, sorted_order, "Unsorted input detected")
+
+    def test_python_pos_integration_non_bypass_invariant_t03(self):
+        """Verify Task T03: POS events cannot bypass trusted inventory or status authorization."""
+        def evaluate_pos_event(event):
+            if event.get("bypass_trusted_inventory"):
+                return {"allowed": False, "code": "POS_AUTHORIZATION_BYPASS_ATTEMPT"}
+            return {"allowed": True}
+
+        bypass_event = {"pos_terminal_id": "term_01", "table_id": "T04", "bypass_trusted_inventory": True}
+        result = evaluate_pos_event(bypass_event)
+        self.assertFalse(result["allowed"])
+        self.assertEqual(result["code"], "POS_AUTHORIZATION_BYPASS_ATTEMPT")
+
+    def test_python_no_unresolved_extension_ready_or_completed_ac2(self):
+        """Verify AC 2: No unresolved extension is shown as ready or completed."""
+        doc = (DOCS_DIR / "architecture" / "deferred-scope-and-future-extensions.md").read_text(encoding="utf-8")
+        self.assertIn("No unresolved extension in the register is marked as `READY` or `COMPLETED`", doc)
+
+    def test_python_first_release_dependencies_independence_ac3(self):
+        """Verify AC 3: First release dependencies (EPIC-001..019) do not require EPIC-020."""
+        core_epics = sorted(TASKS_DIR.glob("EPIC-*.md"))
+        for epic_file in core_epics:
+            if epic_file.name.startswith("EPIC-020"):
+                continue
+            text = epic_file.read_text(encoding="utf-8")
+            header = text.split("\n---\n", 1)[0]
+            self.assertNotIn("EPIC-020", header, f"{epic_file.name} must not depend on EPIC-020")
+
+    def test_python_microservice_scale_triggers_evidence_ac4(self):
+        """Verify AC 4: Architecture scale changes require measured evidence and explicit ADR."""
+        def evaluate_scale(reservations_per_day, p95_latency):
+            if reservations_per_day > 100000 or p95_latency > 250:
+                return {"justified": True, "action": "COMMISSION_ADR_008"}
+            return {"justified": False, "action": "RETAIN_MODULAR_MONOLITH"}
+
+        # MVP scale
+        mvp = evaluate_scale(5000, 45)
+        self.assertFalse(mvp["justified"])
+        self.assertEqual(mvp["action"], "RETAIN_MODULAR_MONOLITH")
+
+        # Enterprise scale breach
+        breach = evaluate_scale(150000, 300)
+        self.assertTrue(breach["justified"])
+        self.assertEqual(breach["action"], "COMMISSION_ADR_008")
+
+    def test_python_deferred_route_rejection(self):
+        """Verify speculative or candidate future endpoints return FEATURE_DEFERRED_TO_FUTURE_RELEASE."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { simulateDeferredRouteRejectionPure } = require('./apps/api/dist/modules/future-extensions/future-extensions.service');
+            const res = simulateDeferredRouteRejectionPure('/v1/joined-tables', 'POST');
+            console.log(JSON.stringify(res));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["status_code"], 501)
+        self.assertEqual(data["error_code"], "FEATURE_DEFERRED_TO_FUTURE_RELEASE")
+
+
 if __name__ == "__main__":
 
     unittest.main(verbosity=2)

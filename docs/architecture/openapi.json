@@ -4234,6 +4234,112 @@
           }
         ]
       }
+    },
+    "/future-extensions/register": {
+      "get": {
+        "operationId": "FutureExtensionsController_getDeferredScopeRegister",
+        "summary": "Get deferred scope register",
+        "description": "Returns the official deferred scope register with accountable owners, rationale, prerequisites, and risk criteria (Blueprint §1.3, §20.3).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Deferred scope register retrieved"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ]
+      }
+    },
+    "/future-extensions/unresolved-contracts": {
+      "get": {
+        "operationId": "FutureExtensionsController_getUnresolvedContracts",
+        "summary": "Get unresolved operational contracts",
+        "description": "Returns the unresolved commercial contracts for no-show, settlement fees, disputes, packages, and review moderation (Blueprint §19.1).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Unresolved contracts register retrieved"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ]
+      }
+    },
+    "/future-extensions/evaluate-feasibility": {
+      "post": {
+        "operationId": "FutureExtensionsController_evaluateFeasibility",
+        "summary": "Evaluate extension feasibility against invariants",
+        "description": "Validates candidate extension designs against core invariants: deterministic table lock ordering for joined tables, non-bypass rules for POS, and prohibition of speculative schema.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Extension feasibility evaluated"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/future-extensions/scale-check": {
+      "post": {
+        "operationId": "FutureExtensionsController_evaluateScaleTriggers",
+        "summary": "Evaluate microservices scale triggers",
+        "description": "Evaluates empirical production scale metrics against decomposition triggers to enforce ADR-001 modular monolith architecture.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Scale triggers evaluated"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/future-extensions/simulate-deferred-route": {
+      "post": {
+        "operationId": "FutureExtensionsController_simulateDeferredRoute",
+        "summary": "Simulate deferred route rejection",
+        "description": "Proves that candidate future endpoints return HTTP 501 / RFC 7807 FEATURE_DEFERRED_TO_FUTURE_RELEASE.",
+        "parameters": [],
+        "responses": {
+          "501": {
+            "description": "Feature deferred error response"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ]
+      }
+    },
+    "/future-extensions/independence-check": {
+      "get": {
+        "operationId": "FutureExtensionsController_checkIndependence",
+        "summary": "Verify first release dependency independence",
+        "description": "Confirms that core release epics (EPIC-001 through EPIC-019) execute completely without dependency on future extensions.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Independence verified"
+          }
+        },
+        "tags": [
+          "Future Extensions & Scope Definition"
+        ]
+      }
     }
   },
   "info": {
@@ -4310,6 +4416,10 @@
     {
       "name": "Release & Staging Verification",
       "description": "Acceptance matrix, concurrency proof, payment replay, security, and staging release gates"
+    },
+    {
+      "name": "Future Extensions & Scope Definition",
+      "description": "Deferred scope register, candidate extension feasibility evaluation, microservices scale triggers, and unresolved contracts"
     }
   ],
   "servers": [],

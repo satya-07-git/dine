@@ -1,3 +1,5 @@
+> **Delivery dashboards:** [20 completed backend epics](project-delivery-kit/tasks/dashboard.html) · [Separate PRD v2 plan](project-delivery-kit/tasks/dashboard-v2.html) · [Delivery guide](project-delivery-kit/tasks/README.md). Previous completion records remain completed; the new decomposition does not reset them.
+
 <p align="center">
   <img src="assets/dine-logo.jpeg" alt="Dine Enterprise Logo" width="360" style="border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.12);" />
 </p>

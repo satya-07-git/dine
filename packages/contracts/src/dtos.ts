@@ -29,7 +29,11 @@ import {
   ReleaseGateStatus,
   ReleaseDecision,
   StagingEnvironment,
+  DeferredExtensionId,
+  ExtensionStatus,
+  ScaleTriggerMetric,
 } from './enums';
+import { ProblemDetails, ErrorCode } from './errors';
 
 export interface HealthResponseDto {
   status: 'ok' | 'degraded' | 'error';
@@ -1589,4 +1593,100 @@ export interface CreateVerificationRunDto {
   run_tag: string;
   suite_name: string;
   environment?: string;
+}
+
+
+// ============================================================================
+// EPIC-020 Future Extensions and Unresolved Scope Definition DTOs
+// ============================================================================
+
+export interface DeferredExtensionItemDto {
+  id: DeferredExtensionId | string;
+  name: string;
+  status: ExtensionStatus | string;
+  accountable_owner: string;
+  rationale: string;
+  missing_requirements: string[];
+  prerequisites: string[];
+  risk_level: 'High' | 'Medium' | 'Low';
+  threat_concerns: string[];
+}
+
+export interface DeferredScopeRegisterResponseDto {
+  total: number;
+  deferred_count: number;
+  under_review_count: number;
+  blocked_count: number;
+  items: DeferredExtensionItemDto[];
+}
+
+export interface ExtensionFeasibilityAssessmentRequestDto {
+  extension_id: DeferredExtensionId | string;
+  proposed_tables_to_lock?: string[];
+  bypass_trusted_inventory?: boolean;
+  proposes_speculative_schema?: boolean;
+}
+
+export interface ExtensionFeasibilityAssessmentResponseDto {
+  extension_id: string;
+  feasible: boolean;
+  status: 'REJECTED' | 'CONDITIONAL_APPROVAL' | 'BLOCKED_ON_INVARIANTS';
+  rejection_code?: ErrorCode | string;
+  lock_order_verified?: boolean;
+  sorted_table_locks?: string[];
+  invariant_violations: string[];
+  required_actions: string[];
+}
+
+export interface MicroserviceDecompositionScaleCheckRequestDto {
+  daily_reservations: number;
+  concurrent_active_holds: number;
+  db_connection_pool_saturation_pct: number;
+  backend_engineers_count: number;
+  availability_read_p95_ms: number;
+}
+
+export interface MicroserviceDecompositionScaleCheckResponseDto {
+  decomposition_justified: boolean;
+  monolith_architecture_retained: boolean;
+  status: 'RETAIN_MODULAR_MONOLITH' | 'SCALE_TRIGGER_BREACHED';
+  evaluated_metrics: {
+    reservations_per_day: { value: number; threshold: number; breached: boolean };
+    concurrent_active_holds: { value: number; threshold: number; breached: boolean };
+    db_connection_saturation: { value: number; threshold: number; breached: boolean };
+    team_contention: { value: number; threshold: number; breached: boolean };
+    p95_read_latency: { value: number; threshold: number; breached: boolean };
+  };
+  adr_reference: string;
+  recommendation: string;
+}
+
+export interface UnresolvedContractItemDto {
+  contract_id: string;
+  title: string;
+  domain: string;
+  status: string;
+  accountable_owner: string;
+  problem_statement: string;
+  resolution_requirement: string;
+  gating_impact: string;
+}
+
+export interface UnresolvedContractsRegisterResponseDto {
+  total: number;
+  contracts: UnresolvedContractItemDto[];
+}
+
+export interface SimulateDeferredRouteRequestDto {
+  route_path: string;
+  method: string;
+}
+
+export interface SimulateDeferredRouteResponseDto {
+  route_path: string;
+  method: string;
+  status_code: number;
+  error_code: ErrorCode | string;
+  message: string;
+  rfc7807_problem: ProblemDetails;
 }

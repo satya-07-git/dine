@@ -1,122 +1,90 @@
 ---
 id: "architecture"
-title: "Architecture and module ownership"
+title: "Finalized v2 architecture and module ownership"
 ---
-# Dine backend architecture
+# Finalized v2 backend architecture
 
-Source: Blueprint §1–4, §15 and §18. This is the planned architecture, not a deployed system. Product frontend is deferred; customer/restaurant clients appear only to explain backend contracts.
+Sources: latest finalized user decisions; PRD §8/21; supplied SQL baseline §3–6; realtime supplement §7–12; Diagram 1. Version precedence and untouched source copies are listed in SOURCE-REGISTER.md. This view is the target design; current runtime conformance is not established by this planning task.
 
-## System context
+## Fixed product and architecture decisions
 
-Customer / Restaurant client → NestJS REST /v1 → PostgreSQL system of record.
-
-Supabase Auth → verified JWT → API resource ownership / restaurant membership checks.
-
-Razorpay → signature-validated webhook → durable inbox → payment application service.
-
-Booking transaction → booking + allocation + history + outbox → commit → asynchronous worker → private Supabase Broadcast / configured push and in-app notification adapters.
-
-Clients receiving an event or reconnecting must refetch canonical REST state. Optional maps and notification providers are replaceable adapters. Gateway callbacks cannot independently override inventory.
-
-## Architecture decision
-
-| Option | Benefit | Cost / decision |
+| Decision | Final specification | Epic |
 | --- | --- | --- |
-| Traditional monolith | Fast setup | Weak module boundaries; prototype only |
-| Modular monolith | One deployable, clear ownership, same-DB ACID | Selected; enforce interfaces and repository ownership |
-| Microservices | Independent deployment/scaling | Distributed failure and consistency overhead; defer |
-| Functions only | Bounded infrastructure | Fragments critical booking workflow; integrations only |
-| Event-driven microservices | Flexible asynchronous pipelines | Consider only after proven scale |
+| Table selection | Manual floor plan + deterministic best-available recommendation | 006, 009–011 |
+| Payment | FREE or restaurant-configured DEPOSIT | 005, 012–014 |
+| Inventory authority | Dine PostgreSQL; never Redis or WebSocket delivery | 008–010 |
+| Backend | NestJS + TypeScript modular monolith | 001–002 |
+| Client | React Native + TypeScript, implementation deferred | 024 handoff |
+| Realtime | Socket.IO/WebSockets + database-backed event recovery | 016–017 |
 
-## Stack from the blueprint
+## Context and infrastructure
 
-| Layer | Selected technology | Boundary |
+Customer app, restaurant dashboard and platform admin call one canonical REST API. They are future/backend consumers here, not product UIs built in this request.
+
+NestJS verifies sessions/RBAC, evaluates policy, coordinates claims/holds/reservations/payments and commits truth in PostgreSQL. Razorpay processes money; Dine verifies evidence before booking confirmation. Outbox records survive server crashes and feed workers. BullMQ and Redis provide scheduling, cache and fan-out, never exclusive reservation ownership. S3-compatible storage is the selected storage category; provider choice remains open.
+
+## Stack and responsibilities
+
+| Layer | Finalized selection / constraint |
+| --- | --- |
+| API | NestJS + TypeScript, REST /api/v1, OpenAPI/Swagger |
+| Database | PostgreSQL 16+ baseline; pgcrypto, btree_gist and range exclusion |
+| Data access | Explicit transactions/raw SQL for inventory; existing Drizzle is a reuse candidate; no unnecessary ORM replacement |
+| Authentication | Phone OTP; provider/session design must implement revocation/rotation as applicable |
+| Cache and fan-out | Redis; data can be rebuilt from durable truth |
+| Jobs | BullMQ with DB-backed recoverable pending work |
+| Realtime | Authorized Socket.IO restaurant:{id} and booking:{id} rooms |
+| Payments | Razorpay adapter; raw-body webhook signature and financial recovery |
+| Storage | S3-compatible adapter; do not assume Supabase Storage is required |
+| Validation/tests | DTO validation; Jest/Vitest/Supertest or existing compatible tooling; real PostgreSQL; k6 load |
+| Delivery | Docker, one migration history, structured logging, metrics and backups |
+
+## Module ownership
+
+| Target module | Owns / boundary | Epic |
 | --- | --- | --- |
-| API | NestJS + TypeScript + OpenAPI REST | One modular deployable |
-| Database | Supabase PostgreSQL + PostGIS | Authoritative inventory and spatial search |
-| Data access | Drizzle typed queries + explicit SQL | SQL migrations are the only schema history |
-| Identity | Supabase Auth, JWT, RBAC and RLS | Verify JWT plus resource/membership access |
-| Payments | Razorpay test mode first | Live money requires separate release gates |
-| Realtime | Supabase private Broadcast | Authorized hints; REST remains truth |
-| Async | Transactional outbox worker + pg_cron | Bounded retries, reconciliation and safe expiry |
-| Monitoring | Structured logs, metrics and Sentry | Correlate customer, hold, order and attempts |
-| Future clients | React Native, Expo, TypeScript | Explicitly deferred from this work |
-
-## In-process module ownership
-
-| Source module | Owns | Delivery epic |
-| --- | --- | --- |
-| Identity & Access | Profiles, role memberships, JWT authorization | EPIC-003 |
-| Restaurant | Profiles, hours, policies, closures | EPIC-004 |
-| Discovery | Location, cuisine and search | EPIC-005 |
-| Floor Plan | Floors, stable tables and versioned geometry | EPIC-006 |
-| Availability | Interval eligibility and blocked periods | EPIC-007 |
-| Reservation | Holds, confirmation, cancellation, expiry and invariants | EPIC-008, EPIC-009 |
-| Payment | Gateway orders, inbox, reconciliation and refunds | EPIC-010, EPIC-011 |
-| Waitlist | Eligible FIFO, exclusive offers, expiry/promotion | EPIC-012 |
-| Booking Status | Guarded transitions and append-only history | EPIC-009, EPIC-013 |
-| Notifications | Outbox, adapters and delivery attempts | EPIC-013 |
-| Dining Experiences | Packages, party options and limits | EPIC-015 |
-| Customer Engagement | Favorites, eligible reviews and preferences | EPIC-016 |
-| Owner Operations | Walk-ins, check-in, closures and layout edits | EPIC-014 |
-| Audit & Support | Transition evidence and privileged interventions | EPIC-017 |
+| auth / users | Phone OTP, identity, sessions/revocation | 003 |
+| restaurant staff / RBAC | Onboarding, membership, manager/staff scope | 004 |
+| restaurants / policies | Calendar, duration, buffer, FREE/DEPOSIT snapshot | 005 |
+| floor-plans / tables | Stable physical table identity and versioned geometry | 006 |
+| discovery | Bounded public search and advisory availability filters | 007 |
+| inventory | Exclusive HELD/RESERVED/BLOCKED claims and consistency | 008 |
+| availability | Restaurant-local intervals and capacity/range eligibility | 009 |
+| holds / idempotency | Atomic acquire/release/expiry and original-result replay | 010 |
+| recommendations | Deterministic ranking and bounded automatic fallback | 011 |
+| reservations | Free confirmation and separate booking lifecycle | 012 |
+| payments | Server orders, verification and gateway inbox | 013 |
+| refunds / reconciliation | Unknown/late money and idempotent compensation | 014 |
+| restaurant-operations | Check-in, seating, completion, no-show, blocks, manual entries | 015 |
+| events / outbox | Same-transaction history, version and recoverable dispatch | 016 |
+| realtime | Authenticated rooms, private payloads, resync/replay | 017 |
+| notifications | Optional push and reminders behind adapters | 018 |
+| admin / audit | Controlled support and immutable evidence | 019 |
+| workers / observability | BullMQ, Redis loss recovery, monitoring, restore | 020 |
+| verification | Database races, security, financial faults and pilot gates | 021 |
+| optional extensions | Waitlist and product analytics | 022–023 |
 
 ## Internal layering
 
 ```text
-HTTP controller + request DTO validation
-  → Application service / use-case orchestration
-    → Domain policy + state transition validator
-      → Repository + PostgreSQL transaction
-        → Booking + allocation + history + audit + outbox
+HTTP controller + verified actor + DTO validation
+  → Application service and cross-module orchestration
+    → Domain policy / state machine
+      → Repository + short PostgreSQL transaction
+        → Claim / hold / reservation / audit / event / outbox
 COMMIT
-  → Async worker
-    → Realtime / notification / integration adapter
+  → Outbox dispatcher / BullMQ workers
+    → Socket.IO gateway / notification / payment adapter
 ```
 
-Modules call published application interfaces. No module casually edits another module's owned tables. Cross-module transactions remain possible within one database through explicit orchestration. Never call external providers while holding inventory row locks.
+No unrestricted writes into another module's owned tables. Do external provider calls outside locks, then reacquire/revalidate current state for the final commit. Protect all writers: hold, free confirm, payment finalization, cancellations, walk-ins and operational blocks.
 
-## Non-negotiable invariants
+## Internal guarantee and restaurant adoption
 
-- A physical table has no two protected allocations with overlapping dining ranges.
-- The backend owns booking, payment and hold validity; clients request actions only.
-- An uncertain payment outcome must be reconciled before safe reallocation or compensated after an approved safe-release path.
-- Waitlist offers protect inventory exclusively and require explicit acceptance; never auto-charge.
-- Staff are scoped to assigned restaurants; customers are scoped to their own private resources.
-- Staff or trusted integrations produce operational statuses; there are no invented occupancy sensors.
-- Critical state changes and interventions leave durable audit evidence.
+Dine prevents conflicts among operations recorded through its inventory engine. A phone reservation, walk-in or external platform booking that staff do not enter in Dine is outside that internal guarantee. Restaurant onboarding and pilot UAT must verify the recording workflow, not promise automatic control over disconnected external systems.
 
-## ADR register
+## Existing repository transition
 
-| ID | Decision |
-| --- | --- |
-| ADR-001 | Modular monolith over microservices |
-| ADR-002 | PostgreSQL is booking system of record |
-| ADR-003 | One physical table per reservation in MVP |
-| ADR-004 | Restaurant-configurable free/deposit policy |
-| ADR-005 | Exclusive waitlist offers, never automatic charge |
-| ADR-006 | Realtime projection reconciles against database/REST |
-| ADR-007 | Agile iterative/incremental SDLC with Spiral-inspired risk review |
+Existing code contains NestJS/Drizzle, supabase/migrations, /v1 routes, table_allocations, Supabase Broadcast contracts and historical completion reports. This task preserves those files and archives the old task dashboard before publishing this v2 target plan. It does not execute migrations or refactor runtime code.
 
-## Repository proposed by the source
-
-```text
-dine/
-  apps/api/src/
-    main.ts
-    common/                  # auth, errors, logging, db
-    modules/
-      identity/ restaurants/ discovery/ floor-plans/
-      availability/ reservations/ payments/ waitlist/
-      booking-status/ notifications/ owner-operations/
-  packages/contracts/        # request/response DTOs and shared types
-  supabase/migrations/       # sole SQL schema history
-  supabase/seed.sql
-  supabase/tests/
-  tests/integration/
-  tests/concurrency/
-  docs/adr/
-  project-delivery-kit/tasks/ # this plan and dashboard
-```
-
-The application folders above are a proposed implementation layout; this delivery creates the planning kit only. Dining-experience and engagement modules can be added inside the same boundaries when their detailed contracts are agreed. apps/mobile remains deferred.
+The target source tree proposes apps/api, packages/shared-types + api-contracts + validation, database/migrations + seeds + tests, infrastructure/docker + monitoring, and architecture/API/runbook docs. Select exactly one migration authority during EPIC-002 and map existing data incrementally. Do not start a second competing history or blindly replay CREATE TABLE statements.

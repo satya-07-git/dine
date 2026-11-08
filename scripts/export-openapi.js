@@ -39,6 +39,7 @@ async function generateOpenApiSpec() {
     .addTag('Audit, Support & Privacy', 'Audit logs, support interventions, incident traces, and privacy controls')
     .addTag('Observability & Background Jobs', 'Worker heartbeat, job claim/retry, dead-letter recovery, metrics, and recovery rehearsal')
     .addTag('Release & Staging Verification', 'Acceptance matrix, concurrency proof, payment replay, security, and staging release gates')
+    .addTag('Future Extensions & Scope Definition', 'Deferred scope register, candidate extension feasibility evaluation, microservices scale triggers, and unresolved contracts')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

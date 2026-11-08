@@ -21,6 +21,7 @@ import { CustomerEngagementModule } from './modules/customer-engagement/customer
 import { AuditSupportModule } from './modules/audit-support/audit-support.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { ReleaseVerificationModule } from './modules/release-verification/release-verification.module';
+import { FutureExtensionsModule } from './modules/future-extensions/future-extensions.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { ReleaseVerificationModule } from './modules/release-verification/releas
     AuditSupportModule,
     ObservabilityModule,
     ReleaseVerificationModule,
+    FutureExtensionsModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -1,120 +1,127 @@
 ---
 id: "workflows"
-title: "Booking, payment and waitlist workflows"
+title: "Finalized state machines and recovery workflows"
 ---
-# Critical backend workflows
+# Finalized booking and recovery workflows
 
-Source: Blueprint §3.3, §6–11, §14–17. These are design walkthroughs, not executed integration tests.
+Sources: PRD §5–7/10/12/13; SQL supplement §3–5; realtime supplement §7–10; Diagrams 2/4. All flows describe target behavior, not tests executed in this planning task.
 
-## 1 · First vertical slice
+## 1 · Manual and automatic selection converge
 
-Sign in → GET published restaurant/floor → GET availability for party/date/time → POST atomic hold → competing customer requests same table/range → max one winner, other receives 409.
+```text
+Restaurant + startsAt + party size
+  → Manual: customer chooses compatible physical table
+  → Automatic: backend ranks eligible tables deterministically
+      ↓ same engine
+  Atomic hold transaction
+      ├─ conflict → 409, no allocation
+      └─ valid hold → FREE or DEPOSIT policy branch
+```
 
-Build and prove this with real PostgreSQL before adding Razorpay or waitlist. Suggested capability sequence: EPIC-001 → 002 → 003 → 004 → 006 → 007 → 008. Audit/security/migration controls apply during this slice; public discovery richness can be parallel follow-up.
+Manual choice is exact; do not silently substitute another table. Automatic recommendation is advisory until a claim commits; bounded retry may try the next eligible candidate under an explicit automatic-selection contract.
 
-## 2 · Atomic hold transaction
+## 2 · Deterministic recommendation
+
+S = 0.40C + 0.25P + 0.20L + 0.15O, each component normalized 0–100.
+
+C = capacity fit; P = preference match; L = seating location suitability; O = restaurant operational efficiency. Filter mandatory capacity/hours/active-claim/block eligibility before scoring. Define component formulas, missing-input defaults, tie-break and retry budget. Weights are initial assumptions, not validated conversion or optimization results. No ML is required.
+
+## 3 · Atomic hold and expiry protocol
 
 ```text
 BEGIN
-  Validate caller, request and idempotency key/payload hash
-  Lock physical table row FOR UPDATE
-  Validate table belongs to restaurant; capacity, hours, policy, version
-  Reconcile/expire only conclusively safe prior allocations
-  Check candidate range against protected allocations and blocks
-  Insert booking HOLD_ACTIVE + allocation HELD + expires_at
-  Persist replayable idempotency result
-  Append audit and outbox event
+  Resolve actor + idempotency operation/key/hash
+  SELECT matching active physical table FOR UPDATE
+  Confirm row exists and belongs to requested restaurant
+  Capture fixed database clock_timestamp() AFTER lock acquisition
+  Transition expired HELD claims → RELEASED
+  Transition associated active holds → EXPIRED
+  Revalidate policy, capacity, operating calendar, blocks and overlap
+  Insert inventory_claim HELD with effective [start, diningEnd+buffer)
+  Insert reservation_hold ACTIVE with configured expiry (initial 120s)
+  Persist original replay result + audit + outbox
 COMMIT
-Return server_time, expiry, price and stable hold identity
+Return holdId, expiresAt, serverTime and server-owned payment policy
 ```
 
-Never call Razorpay while holding this lock. Exclusion constraint is the safety net for every writer. On rollback, no orphan booking/allocation/event/result may remain. Scheduled expiry does not replace request-time safety checks.
+Keep transaction short. PostgreSQL exclusion is the last guard, including every block and staff writer. Cron improves freshness; request-time serialized cleanup means correctness does not depend on an exact worker tick. SQLSTATE 23P01 maps to conflict. No external provider HTTP call holds the table lock.
 
-## 3 · Booking and allocation state mapping
+## 4 · Separate state machines
+
+| Domain | State vocabulary / examples |
+| --- | --- |
+| Claim | HELD → RESERVED or RELEASED; BLOCKED → RELEASED |
+| Hold | ACTIVE → CONSUMED, EXPIRED or RELEASED |
+| Reservation | PENDING_PAYMENT → CONFIRMED → CHECKED_IN → SEATED → COMPLETED; eligible CANCELLED/NO_SHOW/EXPIRED paths |
+| Payment | CREATED/PENDING → verified SUCCEEDED or FAILED; refund workflow remains separate |
+| Financial recovery | Durable unresolved/retrying/escalated/terminal work; exact contract to design, not PAYMENT_REVIEW inventory ownership |
+
+PRD includes REFUND_FAILED and supplied SQL includes PARTIALLY_REFUNDED. Implement an explicit combined mapping and legal transitions; do not drop failed or partial monetary outcomes. Full no-show/cancellation/completion release/remaining-buffer rules still need policy definition.
+
+## 5 · Free reservation
 
 ```text
-Booking HOLD_ACTIVE / allocation HELD
-  → FREE_RESERVATION approved confirm action → CONFIRMED
-  → order creation → PAYMENT_PENDING
-      → verified capture + eligible inventory → CONFIRMED
-      → unknown at deadline → PAYMENT_REVIEW
-          → verified success + eligible inventory → CONFIRMED
-          → conclusively safe failure/release → EXPIRED
-
-HOLD_ACTIVE → safe expiration → EXPIRED
-CONFIRMED → READY → SEATED → COMPLETED
-CONFIRMED → SEATED when approved staff transition allows
-Eligible booking → policy-checked CANCELLED
+Own ACTIVE hold + restaurant FREE policy snapshot
+  → acquire same physical table lock
+  → verify hold/claim/owner/expiry and no state mismatch
+  → claim HELD → RESERVED
+  → hold ACTIVE → CONSUMED
+  → one reservation CONFIRMED + unique booking_reference
+  → history + audit + version + outbox in same commit
 ```
 
-This expands the source transition examples into a planning walkthrough; it is not a complete enum/transition matrix. No-show, direct seating/completion, free confirmation and cancellation from pending/review require EPIC-001/009 policy definition. Actor and prior state are validated at every transition. Service states and append-only event/outbox commit together.
+Repeated free confirmation returns the same logical reservation. DEPOSIT venues cannot use this path to bypass payment. Expired holds are not eligible for normal confirmation.
 
-## 4 · Free versus deposit reservation
+## 6 · Deposit reservation and verified outcome
 
-| Policy | Inventory action | Payment action |
+```text
+Own valid hold + server snapshot DEPOSIT/amount/currency
+  → persist payment/order operation identity
+  → call Razorpay outside inventory lock; recover unknown order creation
+  → verified raw-body inbox and/or server gateway verification
+      ├─ verified success + current valid owned claim
+      │    → short table-lock transaction → confirm once
+      ├─ verified failure → safe release/expiry state updates
+      └─ pending/unknown → durable financial reconciliation
+```
+
+A payment attempt never silently extends the initial 120-second hold. Client redirect is not proof. Verified money and reservation confirmation are separate states. Compare order association, amount, currency, payment status and applicable capture state before finalization.
+
+## 7 · Hold expiry during payment and late capture
+
+| Scenario | Inventory | Financial state / action |
 | --- | --- | --- |
-| FREE_RESERVATION | Atomic hold or direct confirmation after approved policy checks | No gateway order |
-| DEPOSIT_REQUIRED | Hold → order → verified success → confirmed | Server amount/currency, test mode first |
+| Hold deadline passes | Serialized HELD → RELEASED and hold → EXPIRED | Unknown payment remains unresolved, not automatically failed |
+| Another customer B acquires same interval | B keeps sole valid claim | A continues reconciliation |
+| Capture for A arrives after expiry/reallocation | Do not normally confirm expired hold or reclaim B | Record verified capture; refund or explicitly authorized alternative |
+| Server crashes after capture before confirm | Recheck persisted claim/hold/version at recovery | Confirm only if still valid, otherwise recovery/refund |
+| Provider stays unknown through retry budget | No implicit indefinite inventory lease | Visible escalation; every money operation remains tracked to terminal resolution |
 
-Deposit is not necessarily the whole meal bill. Cancellation cutoff, refundability, tax handling, lateness and no-show are owner-configurable only after the approved policy contract.
+A future controlled payment-processing lease must be designed explicitly with duration and gateway timeout/expiry policy. It is not part of the current implicit hold behavior.
 
-## 5 · Webhook and payment trust
-
-```text
-Gateway event
-  → Read ORIGINAL raw body
-  → Verify gateway signature
-  → Durably insert unique gateway_event_id into inbox
-  → Acknowledge durable receipt
-  → Idempotent processor verifies order, amount, currency, capture state
-  → Lock/recheck current inventory and booking
-  → Commit valid transition + history + audit + outbox
-```
-
-Duplicate and out-of-order events must not downgrade capture or duplicate confirmation/refund. A mobile success redirect is not proof. Gateway order timeouts are recoverable uncertainty, not permission to create unlimited duplicate orders.
-
-## 6 · Expiry versus late UPI capture
-
-| At deadline / later evidence | Inventory outcome | Recovery |
-| --- | --- | --- |
-| No payment started and release is conclusively safe | Expire held allocation transactionally | Public availability / eligible waitlist |
-| Payment outcome unknown | Protect PAYMENT_REVIEW within bounded policy | Scheduled/event reconciliation; visible escalation |
-| Verified success while eligible allocation retained | Confirm once | Publish canonical status event |
-| Verified success arrives after safe release to B | Keep B allocation | Refund/compensate A with audit |
-| Provider remains unknown | Follow approved bounded recovery decision | Do not invent universal timeout or silent release |
-
-Provider queries run outside inventory locks. The commit step rechecks current state to avoid capture/expiry/promotion races. Refund requested and refund completed are distinct; failed recovery must be visible.
-
-## 7 · Exclusive waitlist promotion
+## 8 · Durable outbox to authorized Socket.IO
 
 ```text
-Inventory safely released
-  → Lock table / serialize promotion
-  → Read FIFO queue in server order, stable tie-break
-  → Skip ineligible entries with bounded checks and audit reason
-  → Create ONE exclusive offer + OFFER_HELD allocation + outbox
-  → Notify best effort
-      → Customer accepts before expiry → approved free/deposit booking path
-      → Decline / safe offer expiry → release and promote next
-      → No eligible entries → public availability
+Committed reservation/claim transition + event/version + outbox
+  → recoverable outbox worker / BullMQ
+  → Socket.IO gateway
+      restaurant:{id}  = authorized availability audience, no private PII
+      booking:{id}     = authorized owner/staff booking state
+  → eventId, eventType, entityId, version, timestamp, payload
 ```
 
-Only the authenticated customer who owns the offer can accept. Restaurant staff cannot accept or charge on their behalf. The MVP queue is table-specific; compatible alternatives are later policy work. A delayed push never extends the offer deadline. Two promoters must not create two exclusive offers.
+Available source event names: table.availability.changed, hold.created, hold.expired, booking.confirmed, booking.cancelled, booking.checked_in, booking.seated, booking.completed. Read private subscription authorization from verified identity and resource ownership, not a client-provided room string.
 
-## 8 · Status and realtime delivery
+## 9 · Reconnect and database-backed recovery
 
-Staff updates READY → API verifies membership and allowed transition → atomic booking/allocation status + history sequence + outbox → worker broadcasts privately → client validates event/version and fetches REST snapshot.
+Authenticate socket → authorize room join → fetch canonical REST snapshot → optionally recover retained events/cursor → deduplicate event IDs and ignore versions older than the snapshot → detect gaps and resync. The exact snapshot/subscription/replay ordering must avoid missing an update during reconnect. If cursor is outside retained history, require a full snapshot. Room/fan-out delivery is not guaranteed and never grants ownership.
 
-Crash after commit leaves a durable event; crash after delivery may create a duplicate. Delivery is at least once with deduplication. On launch/reconnect REST restores truth even if every intermediate realtime hint was missed.
+## 10 · Restaurant operations and external booking boundary
 
-## 9 · Risk-driven incremental SDLC
+Staff lists arrivals and records CHECKED_IN → SEATED → COMPLETED through authorized state transitions. A maintenance block creates a BLOCKED claim under the same lock/exclusion, so an existing overlapping reservation causes conflict or explicit audited resolution. Walk-ins/phone/external reservations require recording through Dine; disconnected external systems are not automatically covered. No silent customer cancellation to fit a staff block.
 
-Define small scope → identify highest correctness/security risk → implement vertical slice → test unit + real DB + integration → demo/review evidence → update ADR/policy/backlog → next increment.
+## 11 · Risk-driven execution and time guidance
 
-Do not use Waterfall as the primary cycle or formal Spiral ceremony for its own sake. Use Spiral-inspired risk review inside Agile iterative/incremental delivery and DevSecOps checks. One/two developers: Kanban plus weekly demo. Three–seven developers: one/two-week Scrum-style increments. Timelines are not estimated by this dashboard.
+First implementation milestone: authoritative migrations + transactional inventory service + hold API + real PostgreSQL concurrency test. Do not begin with payments or mobile floor-plan animation.
 
-## 10 · Dependency-ordered release path
-
-Definition → foundation/auth → restaurant/floor inventory → interval availability → atomic holds → lifecycle → test-mode payments and recovery → exclusive waitlist → private events/reconnect → restaurant dry-run → release verification.
-
-Realtime can be implemented alongside payment/waitlist after lifecycle; audit/reliability are continuous. Packages/reviews are named operations-stage work with incomplete detailed contracts; include them in a pilot only after their own decisions are resolved. Future joined tables/POS/pricing/analytics remain separate.
+Source delivery estimate is 8–12 weeks for one experienced focused full-stack developer, controlled pilot and limited design changes. It is not a commitment or measured schedule. Phase guidance: week 1 foundation/DB; week 2 venue/floor; weeks 3–4 claims/holds/free booking; weeks 5–6 money/recovery; week 7 realtime/operations; weeks 8–9 future client integration; weeks 10–12 hardening/pilot. Backend work and frontend integration are explicitly separated in this request.
