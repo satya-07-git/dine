@@ -221,3 +221,23 @@ export enum MetricType {
   READ_LATENCY_P95_MS = 'READ_LATENCY_P95_MS',
   HOLD_LATENCY_P95_MS = 'HOLD_LATENCY_P95_MS',
 }
+
+// EPIC-019 Backend Verification, Staging & Release Gates
+export enum ReleaseGateStatus {
+  PASSED = 'PASSED',
+  FAILED = 'FAILED',
+  BLOCKED = 'BLOCKED',
+  CONDITIONAL = 'CONDITIONAL',
+}
+
+export enum ReleaseDecision {
+  GO = 'GO',
+  NO_GO = 'NO_GO',
+  CONDITIONAL_GO = 'CONDITIONAL_GO',
+}
+
+export enum StagingEnvironment {
+  LOCAL_SYNTHETIC = 'LOCAL_SYNTHETIC',
+  STAGING_PRE_RELEASE = 'STAGING_PRE_RELEASE',
+  PRODUCTION_GATE = 'PRODUCTION_GATE',
+}

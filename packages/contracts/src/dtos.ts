@@ -26,6 +26,9 @@ import {
   BackgroundJobType,
   BackgroundJobStatus,
   WorkerStatus,
+  ReleaseGateStatus,
+  ReleaseDecision,
+  StagingEnvironment,
 } from './enums';
 
 export interface HealthResponseDto {
@@ -1474,4 +1477,116 @@ export interface PerformanceSloReportDto {
       compliant: boolean;
     };
   };
+}
+
+// ============================================================================
+// EPIC-019 Backend Verification, Staging & Release Gates DTOs
+// ============================================================================
+
+export interface AcceptanceMatrixItemDto {
+  scenario_id: string;
+  owning_epic: string;
+  source_section: string;
+  description: string;
+  expected_result: string;
+  test_suite: string;
+  status: 'VERIFIED' | 'PENDING' | 'FAILED';
+}
+
+export interface AcceptanceMatrixResponseDto {
+  total: number;
+  verified_count: number;
+  items: AcceptanceMatrixItemDto[];
+}
+
+export interface ConcurrencyCheckRequestDto {
+  table_id?: string;
+  concurrency_level?: number;
+  slot_start?: string;
+}
+
+export interface ConcurrencyCheckResponseDto {
+  table_id: string;
+  total_attempts: number;
+  winners_count: number;
+  conflicts_count: number;
+  winner_hold_id: string;
+  status: 'PASSED' | 'FAILED';
+  invariant_maintained: boolean;
+  message: string;
+}
+
+export interface PaymentRecoveryReplayRequestDto {
+  scenario: 'LATE_CAPTURE' | 'WEBHOOK_DUPLICATE' | 'OUT_OF_ORDER' | 'NETWORK_LOSS';
+}
+
+export interface PaymentRecoveryReplayResponseDto {
+  scenario: string;
+  idempotent: boolean;
+  inventory_preserved: boolean;
+  refund_dispatched: boolean;
+  status: 'PASSED' | 'FAILED';
+  details: string;
+}
+
+export interface PromoterConflictReplayResponseDto {
+  queue_promoters_simulated: number;
+  exclusive_offers_created: number;
+  conflicts_avoided: number;
+  walk_in_contention_handled: boolean;
+  status: 'PASSED' | 'FAILED';
+  message: string;
+}
+
+export interface SecurityAndLoadCheckResponseDto {
+  cross_tenant_access_denied: boolean;
+  private_realtime_joins_denied: boolean;
+  secrets_redacted_count: number;
+  restore_rehearsal_verified: boolean;
+  status: 'PASSED' | 'FAILED';
+  message: string;
+}
+
+export interface ReleaseGateItemDto {
+  gate_id: string;
+  gate_name: string;
+  owning_epic: string;
+  status: ReleaseGateStatus | string;
+  decision: ReleaseDecision | string;
+  accountable_owner: string;
+  blocking_reason?: string | null;
+}
+
+export interface StagingGoNoGoDecisionDto {
+  evaluated_at: string;
+  environment: StagingEnvironment | string;
+  overall_decision: ReleaseDecision | string;
+  live_money_allowed: boolean;
+  commercial_gates_unresolved: string[];
+  staging_gates_passed: number;
+  total_gates: number;
+  observation_owner: string;
+  recovery_owner: string;
+  gates: ReleaseGateItemDto[];
+}
+
+export interface StagingVerificationRunDto {
+  id: string;
+  run_tag: string;
+  environment: string;
+  suite_name: string;
+  status: string;
+  total_checks: number;
+  passed_checks: number;
+  failed_checks: number;
+  evidence: Record<string, unknown>;
+  executed_by: string;
+  started_at: string;
+  completed_at?: string | null;
+}
+
+export interface CreateVerificationRunDto {
+  run_tag: string;
+  suite_name: string;
+  environment?: string;
 }

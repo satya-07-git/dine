@@ -4073,6 +4073,167 @@
           }
         ]
       }
+    },
+    "/release/acceptance-matrix": {
+      "get": {
+        "operationId": "ReleaseVerificationController_getAcceptanceMatrix",
+        "summary": "Get Blueprint acceptance matrix",
+        "description": "Returns the verified acceptance matrix mapping scenarios to owning epics and Blueprint §17.1 / §19 source sections.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Acceptance matrix retrieved"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ]
+      }
+    },
+    "/release/concurrency-check": {
+      "post": {
+        "operationId": "ReleaseVerificationController_runConcurrencyCheck",
+        "summary": "Execute 100-client concurrency check",
+        "description": "Automates multi-client race conditions proving at most one protected allocation winner.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Concurrency simulation evaluated"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/release/payment-recovery-replay": {
+      "post": {
+        "operationId": "ReleaseVerificationController_runPaymentRecoveryReplay",
+        "summary": "Replay payment recovery scenarios",
+        "description": "Replays payment lateness, duplicates, out-of-order webhooks, and network-loss scenarios.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Payment recovery replay evaluated"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/release/promoter-conflict-replay": {
+      "post": {
+        "operationId": "ReleaseVerificationController_runPromoterConflictReplay",
+        "summary": "Replay waitlist promoter & walk-in conflict paths",
+        "description": "Verifies two queue promoters and owner walk-in contention paths.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Promoter conflict replay evaluated"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/release/security-load-check": {
+      "post": {
+        "operationId": "ReleaseVerificationController_runSecurityLoadCheck",
+        "summary": "Execute security, secrets, and restore checks",
+        "description": "Verifies cross-tenant isolation, private topic access denial, secrets scrubbing, and backup restore coherence.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Security and load check evaluated"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/release/go-no-go": {
+      "get": {
+        "operationId": "ReleaseVerificationController_getStagingGoNoGo",
+        "summary": "Evaluate staging go/no-go and commercial release gates",
+        "description": "Evaluates all staging gates, blocks live payment release until commercial gates (GATE-001..GATE-007) are approved, and records designated observation and recovery owners.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Staging go/no-go decision retrieved"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/release/runs": {
+      "post": {
+        "operationId": "ReleaseVerificationController_createVerificationRun",
+        "summary": "Record staging verification run",
+        "description": "Records an automated staging verification run with structured evidence.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Verification run recorded"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "ReleaseVerificationController_listVerificationRuns",
+        "summary": "List staging verification runs",
+        "description": "Lists all staging verification runs and evidence artifacts.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Verification runs retrieved"
+          }
+        },
+        "tags": [
+          "Release & Staging Verification"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -4145,6 +4306,10 @@
     {
       "name": "Observability & Background Jobs",
       "description": "Worker heartbeat, job claim/retry, dead-letter recovery, metrics, and recovery rehearsal"
+    },
+    {
+      "name": "Release & Staging Verification",
+      "description": "Acceptance matrix, concurrency proof, payment replay, security, and staging release gates"
     }
   ],
   "servers": [],

@@ -38,6 +38,7 @@ async function generateOpenApiSpec() {
     .addTag('Customer Engagement', 'Customer favorites, verified dining reviews, and dining preferences')
     .addTag('Audit, Support & Privacy', 'Audit logs, support interventions, incident traces, and privacy controls')
     .addTag('Observability & Background Jobs', 'Worker heartbeat, job claim/retry, dead-letter recovery, metrics, and recovery rehearsal')
+    .addTag('Release & Staging Verification', 'Acceptance matrix, concurrency proof, payment replay, security, and staging release gates')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

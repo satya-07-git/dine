@@ -531,3 +531,36 @@ export const systemMetrics = pgTable('system_metrics', {
   labels: jsonb('labels').default({}).notNull(),
   recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ============================================================================
+// 13. EPIC-019 Backend Verification, Staging & Release Gates
+// ============================================================================
+
+export const stagingVerificationRuns = pgTable('staging_verification_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  runTag: varchar('run_tag', { length: 100 }).notNull(),
+  environment: varchar('environment', { length: 50 }).default('staging').notNull(),
+  suiteName: varchar('suite_name', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('PENDING').notNull(),
+  totalChecks: integer('total_checks').default(0).notNull(),
+  passedChecks: integer('passed_checks').default(0).notNull(),
+  failedChecks: integer('failed_checks').default(0).notNull(),
+  evidence: jsonb('evidence').default({}).notNull(),
+  executedBy: varchar('executed_by', { length: 100 }).notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const releaseGateEvaluations = pgTable('release_gate_evaluations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  gateId: varchar('gate_id', { length: 50 }).notNull(),
+  gateName: varchar('gate_name', { length: 200 }).notNull(),
+  owningEpic: varchar('owning_epic', { length: 50 }).notNull(),
+  status: varchar('status', { length: 50 }).default('PASSED').notNull(),
+  decision: varchar('decision', { length: 50 }).default('GO').notNull(),
+  blockingReason: text('blocking_reason'),
+  evidenceSummary: jsonb('evidence_summary').default({}).notNull(),
+  accountableOwner: varchar('accountable_owner', { length: 100 }).notNull(),
+  evaluatedAt: timestamp('evaluated_at', { withTimezone: true }).defaultNow().notNull(),
+});
