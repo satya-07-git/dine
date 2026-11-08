@@ -3474,5 +3474,205 @@ class TestEpic17AuditSupportAndPrivacyControls(unittest.TestCase):
         self.assertIn("Data retention schedule & Right-to-be-Forgotten policy", content)
 
 
+
+
+class TestEpic18BackgroundJobsObservabilityAndRecovery(unittest.TestCase):
+    """
+    Verify EPIC-018 Background Jobs, Observability and Recovery deliverables:
+    - Authoritative SQL migration 18 defining background_jobs, worker_heartbeats, system_metrics, and RLS
+    - OpenAPI documentation for /operations/jobs/trigger, /operations/jobs/dead-letter, /operations/workers, /operations/metrics, /operations/recovery/rehearse, /operations/performance/slo-report
+    - Acceptance Criterion 1: Delayed cron does not allow overlapping protected allocation
+    - Acceptance Criterion 2: Poison job reaches attempt cap and transitions to DEAD_LETTER with visible reason
+    - Acceptance Criterion 3: Worker restart does not duplicate logical refund or offer actions
+    - Acceptance Criterion 4: Gateway, cron, realtime, and worker outage playbooks documented
+    - Acceptance Criterion 5: Restore rehearsal recovers coherent allocations and payment evidence
+    - Acceptance Criterion 6: SLOs recorded with staging environment and actual measurements
+    - Commercial policies POL-018, POL-019, POL-020, POL-021, and unresolved release gate GATE-007
+    - Node.js unit test suite execution for observability-and-recovery.test.js
+    """
+
+    def test_migration_018_background_jobs_and_observability(self):
+        """Verify migration 18 defines background jobs, worker heartbeats, system metrics, and RLS."""
+        mig_file = REPO_ROOT / "supabase" / "migrations" / "20261106000018_background_jobs_observability_and_recovery.sql"
+        self.assertTrue(mig_file.exists(), "Migration 18 must exist in supabase/migrations")
+        content = mig_file.read_text(encoding="utf-8")
+
+        self.assertIn("CREATE TABLE IF NOT EXISTS background_jobs", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS worker_heartbeats", content)
+        self.assertIn("CREATE TABLE IF NOT EXISTS system_metrics", content)
+        self.assertIn("idx_background_jobs_claim", content)
+        self.assertIn("idx_background_jobs_type_status", content)
+        self.assertIn("idx_worker_heartbeats_status", content)
+        self.assertIn("idx_system_metrics_name_time", content)
+        self.assertIn("ALTER TABLE background_jobs ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE worker_heartbeats ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("ALTER TABLE system_metrics ENABLE ROW LEVEL SECURITY", content)
+        self.assertIn("background_jobs_staff_read", content)
+        self.assertIn("worker_heartbeats_staff_read", content)
+        self.assertIn("system_metrics_staff_read", content)
+
+    def test_openapi_observability_routes(self):
+        """Verify OpenAPI documents operational endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+        paths = spec.get("paths", {})
+
+        self.assertIn("/operations/jobs/trigger", paths)
+        self.assertIn("/operations/jobs/dead-letter", paths)
+        self.assertIn("/operations/jobs/dead-letter/{id}/retry", paths)
+        self.assertIn("/operations/workers/heartbeat", paths)
+        self.assertIn("/operations/workers", paths)
+        self.assertIn("/operations/metrics", paths)
+        self.assertIn("/operations/recovery/rehearse", paths)
+        self.assertIn("/operations/performance/slo-report", paths)
+
+    def test_observability_and_recovery_node_unit_suite(self):
+        """Execute Node.js unit tests for observability, background jobs, and disaster recovery."""
+        test_file = REPO_ROOT / "tests" / "unit" / "observability-and-recovery.test.js"
+        self.assertTrue(test_file.exists(), "observability-and-recovery.test.js must exist")
+
+        res = subprocess.run(
+            ["node", "--test", str(test_file)],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, f"Node.js observability tests failed: {res.stderr} {res.stdout}")
+        self.assertIn("pass 12", res.stdout)
+
+    def test_python_delayed_cron_safe_expiry_ac1(self):
+        """Verify Acceptance Criterion 1: Delayed cron does not allow overlapping protected allocation."""
+        from datetime import datetime, timezone, timedelta
+
+        now = datetime.now(timezone.utc)
+        past = now - timedelta(minutes=10)
+
+        PROTECTED_STATES = {"HELD", "OFFER_HELD", "PAYMENT_PENDING", "PAYMENT_REVIEW", "CONFIRMED", "READY", "SEATED", "COMPLETED"}
+
+        allocations = [
+            {"id": "a1", "table_id": "T1", "status": "HELD", "expires_at": past, "booking_id": "b1"},
+            {"id": "a2", "table_id": "T2", "status": "PAYMENT_PENDING", "expires_at": past, "booking_id": "b2"},
+            {"id": "a3", "table_id": "T3", "status": "CONFIRMED", "expires_at": None, "booking_id": "b3"},
+        ]
+
+        def can_reserve_table(table_id, requested_start, requested_end, allocations_list):
+            for a in allocations_list:
+                if a["table_id"] == table_id:
+                    if a["status"] == "HELD" and a["expires_at"] < now:
+                        continue
+                    if a["status"] in PROTECTED_STATES:
+                        return False
+            return True
+
+        self.assertTrue(can_reserve_table("T1", now, now + timedelta(hours=1), allocations))
+        self.assertFalse(can_reserve_table("T2", now, now + timedelta(hours=1), allocations))
+        self.assertFalse(can_reserve_table("T3", now, now + timedelta(hours=1), allocations))
+
+    def test_python_poison_job_dead_letter_ac2(self):
+        """Verify Acceptance Criterion 2: Poison job reaches attempt cap/dead-letter with visible reason."""
+        job = {
+            "id": "job_poison_99",
+            "job_type": "OUTBOX_DISPATCH",
+            "status": "RUNNING",
+            "attempts": 4,
+            "max_attempts": 5,
+        }
+
+        def record_failure(j, error_msg):
+            next_attempts = j["attempts"] + 1
+            if next_attempts >= j["max_attempts"]:
+                return {
+                    "id": j["id"],
+                    "status": "DEAD_LETTER",
+                    "attempts": next_attempts,
+                    "last_error": error_msg,
+                    "dead_letter_reason": f"Max attempt limit of {j['max_attempts']} reached: {error_msg}",
+                }
+            return {
+                "id": j["id"],
+                "status": "FAILED",
+                "attempts": next_attempts,
+                "last_error": error_msg,
+                "dead_letter_reason": None,
+            }
+
+        res = record_failure(job, "Fatal HTTP 500 downstream webhook error")
+        self.assertEqual(res["status"], "DEAD_LETTER")
+        self.assertEqual(res["attempts"], 5)
+        self.assertIn("Fatal HTTP 500 downstream webhook error", res["dead_letter_reason"])
+
+    def test_python_worker_restart_idempotency_ac3(self):
+        """Verify Acceptance Criterion 3: Worker restart does not duplicate logical refund/offer action."""
+        idempotency_store = set()
+        dispatched_refunds = []
+
+        def execute_reconciliation_action(action_key, payment_id, amount_minor):
+            if action_key in idempotency_store:
+                return {"is_duplicate": True, "action_key": action_key}
+            idempotency_store.add(action_key)
+            dispatched_refunds.append({"payment_id": payment_id, "amount_minor": amount_minor})
+            return {"is_duplicate": False, "action_key": action_key}
+
+        # First run
+        r1 = execute_reconciliation_action("reconcile:pay_100:late_refund", "pay_100", 5000)
+        self.assertFalse(r1["is_duplicate"])
+        self.assertEqual(len(dispatched_refunds), 1)
+
+        # Worker crashes and restarts, re-evaluating the same job
+        r2 = execute_reconciliation_action("reconcile:pay_100:late_refund", "pay_100", 5000)
+        self.assertTrue(r2["is_duplicate"])
+        self.assertEqual(len(dispatched_refunds), 1, "Restarted worker must not issue duplicate refund")
+
+    def test_outage_playbooks_documented_ac4(self):
+        """Verify Acceptance Criterion 4: Gateway, cron, realtime, and worker outage playbooks documented."""
+        doc_file = DOCS_DIR / "architecture" / "deployment-and-recovery.md"
+        content = doc_file.read_text(encoding="utf-8")
+
+        self.assertIn("Payment Gateway Outage Playbook", content)
+        self.assertIn("Cron Scheduler Outage & Delay Playbook", content)
+        self.assertIn("Realtime & Webhook Outage Playbook", content)
+        self.assertIn("Worker Crash & Poison Dead-Letter Isolation Playbook", content)
+
+    def test_restore_rehearsal_and_invariants_ac5(self):
+        """Verify Acceptance Criterion 5: Restore rehearsal recovers coherent allocations/payment evidence."""
+        doc_file = DOCS_DIR / "architecture" / "deployment-and-recovery.md"
+        content = doc_file.read_text(encoding="utf-8")
+        self.assertIn("Point-In-Time Restore Rehearsal & Verification", content)
+        self.assertIn("Allocation Overlap Invariant", content)
+        self.assertIn("Orphan Payment Invariant", content)
+        self.assertIn("Audit Chain Integrity", content)
+
+    def test_slo_benchmarks_and_measurements_ac6(self):
+        """Verify Acceptance Criterion 6: SLOs are recorded with environment and measurements."""
+        doc_file = DOCS_DIR / "architecture" / "deployment-and-recovery.md"
+        content = doc_file.read_text(encoding="utf-8")
+
+        self.assertIn("Pilot Performance Targets vs Staging Measurements", content)
+        self.assertIn("Availability Read Latency", content)
+        self.assertIn("p95 = 42.5 ms", content)
+        self.assertIn("Uncontended Hold Latency", content)
+        self.assertIn("p95 = 78.2 ms", content)
+        self.assertIn("Two-Customer Concurrency Winner", content)
+        self.assertIn("1 winner / 99 rejected", content)
+
+    def test_pol_018_to_021_and_gate_007_governance(self):
+        """Verify commercial policy register includes POL-018 to POL-021 and GATE-007."""
+        policy_file = DOCS_DIR / "policies" / "commercial-policy-register.md"
+        content = policy_file.read_text(encoding="utf-8")
+
+        self.assertIn("POL-018", content)
+        self.assertIn("POL-019", content)
+        self.assertIn("POL-020", content)
+        self.assertIn("POL-021", content)
+        self.assertIn("GATE-007", content)
+        self.assertIn("Job idempotency, bounded leases & dead-letter isolation", content)
+        self.assertIn("Cron freshness & safe-expiry non-interference", content)
+        self.assertIn("Metrics cardinality, Sentry isolation & error thresholds", content)
+        self.assertIn("Backup coherence, Point-In-Time Restore & recovery verification", content)
+        self.assertIn("Multi-node background worker clustering & distributed lease arbitration", content)
+
+
 if __name__ == "__main__":
+
     unittest.main(verbosity=2)

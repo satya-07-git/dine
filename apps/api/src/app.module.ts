@@ -19,6 +19,7 @@ import { OwnerOperationsModule } from './modules/owner-operations/owner-operatio
 import { PackagesModule } from './modules/packages/packages.module';
 import { CustomerEngagementModule } from './modules/customer-engagement/customer-engagement.module';
 import { AuditSupportModule } from './modules/audit-support/audit-support.module';
+import { ObservabilityModule } from './modules/observability/observability.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AuditSupportModule } from './modules/audit-support/audit-support.module
     PackagesModule,
     CustomerEngagementModule,
     AuditSupportModule,
+    ObservabilityModule,
   ],
 })
 export class AppModule implements NestModule {

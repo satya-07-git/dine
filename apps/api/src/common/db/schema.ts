@@ -12,6 +12,7 @@ import {
   inet,
   primaryKey,
   customType,
+  numeric,
 } from 'drizzle-orm/pg-core';
 
 export const tstzrange = customType<{ data: string }>({
@@ -487,4 +488,46 @@ export const privacyErasureRequests = pgTable('privacy_erasure_requests', {
   retainedRecordsSummary: jsonb('retained_records_summary').default({}),
   anonymizedAt: timestamp('anonymized_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ============================================================================
+// 12. EPIC-018 Background Jobs, Observability and Recovery
+// ============================================================================
+
+export const backgroundJobs = pgTable('background_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  jobType: varchar('job_type', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('PENDING').notNull(),
+  payload: jsonb('payload').default({}).notNull(),
+  attempts: integer('attempts').default(0).notNull(),
+  maxAttempts: integer('max_attempts').default(5).notNull(),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  claimedBy: varchar('claimed_by', { length: 100 }),
+  claimExpiresAt: timestamp('claim_expires_at', { withTimezone: true }),
+  nextRetryAt: timestamp('next_retry_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  deadLetterReason: text('dead_letter_reason'),
+  executionDurationMs: integer('execution_duration_ms'),
+  resultSummary: jsonb('result_summary').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+});
+
+export const workerHeartbeats = pgTable('worker_heartbeats', {
+  workerId: varchar('worker_id', { length: 100 }).primaryKey(),
+  workerName: varchar('worker_name', { length: 100 }).notNull(),
+  hostname: varchar('hostname', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('ACTIVE').notNull(),
+  currentJobId: uuid('current_job_id').references(() => backgroundJobs.id),
+  lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true }).defaultNow().notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).defaultNow().notNull(),
+  metrics: jsonb('metrics').default({ processed_count: 0, error_count: 0, uptime_seconds: 0 }).notNull(),
+});
+
+export const systemMetrics = pgTable('system_metrics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  metricName: varchar('metric_name', { length: 100 }).notNull(),
+  metricValue: numeric('metric_value', { precision: 12, scale: 4 }).notNull(),
+  labels: jsonb('labels').default({}).notNull(),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).defaultNow().notNull(),
 });

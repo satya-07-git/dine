@@ -32,8 +32,8 @@ npm run build
 echo ">> TypeScript compilation succeeded."
 
 echo ""
-echo "[GATE 4/8] Running Node.js Unit Tests (Foundation, Identity, Policies, Discovery, Menus, Floor Plans, Availability, Atomic Holds, Lifecycle, Payments, Waitlist, Realtime Notifications, Owner Operations, Packages, Engagement & Audit-Support)..."
-node --test tests/unit/foundation.test.js tests/unit/identity.test.js tests/unit/restaurant-policy.test.js tests/unit/discovery-and-menu.test.js tests/unit/floor-plans.test.js tests/unit/availability.test.js tests/unit/atomic-holds.test.js tests/unit/reservation-lifecycle.test.js tests/unit/payment-orders-and-webhooks.test.js tests/unit/payment-reconciliation.test.js tests/unit/waitlist.test.js tests/unit/notifications-and-realtime.test.js tests/unit/owner-operations.test.js tests/unit/packages.test.js tests/unit/engagement.test.js tests/unit/audit-support.test.js
+echo "[GATE 4/8] Running Node.js Unit Tests (Foundation, Identity, Policies, Discovery, Menus, Floor Plans, Availability, Atomic Holds, Lifecycle, Payments, Waitlist, Realtime Notifications, Owner Operations, Packages, Engagement, Audit-Support & Observability-Recovery)..."
+node --test tests/unit/foundation.test.js tests/unit/identity.test.js tests/unit/restaurant-policy.test.js tests/unit/discovery-and-menu.test.js tests/unit/floor-plans.test.js tests/unit/availability.test.js tests/unit/atomic-holds.test.js tests/unit/reservation-lifecycle.test.js tests/unit/payment-orders-and-webhooks.test.js tests/unit/payment-reconciliation.test.js tests/unit/waitlist.test.js tests/unit/notifications-and-realtime.test.js tests/unit/owner-operations.test.js tests/unit/packages.test.js tests/unit/engagement.test.js tests/unit/audit-support.test.js tests/unit/observability-and-recovery.test.js
 echo ">> Node.js unit tests passed."
 
 echo ""

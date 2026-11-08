@@ -3879,6 +3879,200 @@
           }
         ]
       }
+    },
+    "/operations/jobs/trigger": {
+      "post": {
+        "operationId": "ObservabilityController_triggerJob",
+        "summary": "Trigger or enqueue background job / sweep",
+        "description": "Manually or programmatically triggers background worker sweeps (safe expiry, payment review, offer expiry, outbox dispatch).",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Job enqueued successfully"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/jobs/dead-letter": {
+      "get": {
+        "operationId": "ObservabilityController_getDeadLetterJobs",
+        "summary": "List poison dead-letter jobs",
+        "description": "Retrieves jobs that reached maximum retry attempts with visible error reasons for operator inspection.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Dead-letter jobs retrieved"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/jobs/dead-letter/{id}/retry": {
+      "post": {
+        "operationId": "ObservabilityController_retryDeadLetterJob",
+        "summary": "Retry dead-letter job",
+        "description": "Resets attempt count and requeues a dead-letter poison job after operator remediation.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Job UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job reset and requeued"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/workers/heartbeat": {
+      "post": {
+        "operationId": "ObservabilityController_recordWorkerHeartbeat",
+        "summary": "Record worker heartbeat",
+        "description": "Heartbeat signal from background worker instances for liveness monitoring.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Heartbeat acknowledged"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ]
+      }
+    },
+    "/operations/workers": {
+      "get": {
+        "operationId": "ObservabilityController_getWorkers",
+        "summary": "List background workers status",
+        "description": "Lists all registered workers, heartbeats, and active job leases.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Workers list retrieved"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/metrics": {
+      "get": {
+        "operationId": "ObservabilityController_getMetrics",
+        "summary": "Get operational system metrics",
+        "description": "Returns hold conflicts, lock wait times, payment review age, outbox age, and error rates.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Operational metrics retrieved"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/recovery/rehearse": {
+      "post": {
+        "operationId": "ObservabilityController_rehearseRecovery",
+        "summary": "Rehearse backup restore and disaster recovery",
+        "description": "Simulates point-in-time restore and reconciles relational invariants across table allocations, payments, and audit logs.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Disaster recovery report generated"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/operations/performance/slo-report": {
+      "get": {
+        "operationId": "ObservabilityController_getPerformanceSloReport",
+        "summary": "Get pilot performance and SLO measurement report",
+        "description": "Reports empirical p95 availability read latency, uncontended hold latency, and concurrency ratios.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "SLO performance report retrieved"
+          },
+          "403": {
+            "description": "Forbidden: Operational role required"
+          }
+        },
+        "tags": [
+          "Observability & Background Jobs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -3947,6 +4141,10 @@
     {
       "name": "Audit, Support & Privacy",
       "description": "Audit logs, support interventions, incident traces, and privacy controls"
+    },
+    {
+      "name": "Observability & Background Jobs",
+      "description": "Worker heartbeat, job claim/retry, dead-letter recovery, metrics, and recovery rehearsal"
     }
   ],
   "servers": [],

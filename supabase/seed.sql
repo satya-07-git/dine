@@ -266,3 +266,22 @@ INSERT INTO support_interventions (id, ticket_id, actor_id, actor_role, restaura
 VALUES
     ('bb000000-0000-0000-0000-000000000001', 'TICKET-4891', 'a0000000-0000-0000-0000-000000000001', 'SUPPORT', 'b0000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'DISPUTE_INVESTIGATION', 'Investigate late bank webhook reconciliation failure', '{"status": "CONFIRMED"}'::jsonb, '{"status": "CONFIRMED", "investigated": true}'::jsonb, 'ee000000-0000-0000-0000-000000000002')
 ON CONFLICT (id) DO NOTHING;
+
+-- 16. Background Jobs, Worker Heartbeats & System Metrics (EPIC-018)
+INSERT INTO background_jobs (id, job_type, status, payload, attempts, max_attempts, execution_duration_ms, result_summary)
+VALUES
+    ('cc000000-0000-0000-0000-000000000001', 'HOLD_SAFE_EXPIRY_SWEEP', 'COMPLETED', '{"batch_size": 50}'::jsonb, 1, 5, 45, '{"expired_count": 0, "status": "CLEAN"}'::jsonb),
+    ('cc000000-0000-0000-0000-000000000002', 'PAYMENT_REVIEW_RECONCILIATION', 'COMPLETED', '{"batch_size": 25}'::jsonb, 1, 5, 82, '{"reconciled_count": 0, "escalated_count": 0}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO worker_heartbeats (worker_id, worker_name, hostname, status, metrics)
+VALUES
+    ('worker-cron-primary-01', 'Primary Sweep Worker', 'worker-pod-az1-alpha', 'ACTIVE', '{"processed_count": 1420, "error_count": 0, "uptime_seconds": 86400}'::jsonb)
+ON CONFLICT (worker_id) DO NOTHING;
+
+INSERT INTO system_metrics (id, metric_name, metric_value, labels)
+VALUES
+    ('dd000000-0000-0000-0000-000000000001', 'hold_conflicts', 0.0000, '{"cluster": "pilot-staging", "environment": "staging"}'::jsonb),
+    ('dd000000-0000-0000-0000-000000000002', 'availability_read_p95_ms', 42.5000, '{"cluster": "pilot-staging", "target": "300-500ms"}'::jsonb),
+    ('dd000000-0000-0000-0000-000000000003', 'uncontended_hold_p95_ms', 78.2000, '{"cluster": "pilot-staging", "target": "500-800ms"}'::jsonb)
+ON CONFLICT (id) DO NOTHING;

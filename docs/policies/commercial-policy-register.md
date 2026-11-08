@@ -38,12 +38,17 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 | **POL-015** | Support & Operations | Controlled platform support interventions & mandatory justification | Privileged support actions require explicit justification reason, record prior state, and append audit events without modifying historical events | **Approved (v1.0)** | Customer Support Lead | Backend Architect | Required before Support (EPIC-017) |
 | **POL-016** | Privacy & Security | Sensitive secret redaction, token protection & safe logging | Passwords, tokens, JWTs, cardholder data, CVVs, and raw bank secrets automatically redacted from logs, diffs, and evidence exports | **Approved (v1.0)** | Privacy & Security Lead | Security Engineer | Required before Support (EPIC-017) |
 | **POL-017** | Privacy & Retention | Data retention schedule & Right-to-be-Forgotten policy | Statutory financial and booking audit records retained for 7 years; GDPR/privacy erasure requests anonymize profile data rather than cascading delete | **Approved (v1.0)** | Legal & Compliance Counsel | Core Engine Lead | Required before Privacy (EPIC-017) |
+| **POL-018** | Background Jobs | Job idempotency, bounded leases & dead-letter isolation | Worker jobs operate with bounded leases, max 5 attempts with exponential backoff, dead-letter queues, and zero side-effects on restart | **Approved (v1.0)** | Platform Operations Lead | Site Reliability Lead | Required before Jobs (EPIC-018) |
+| **POL-019** | Background Jobs | Cron freshness & safe-expiry non-interference | Cron sweeps act as freshness aids; core engine transactionally enforces safe-expiry; delayed cron never allows double-allocations | **Approved (v1.0)** | Product Manager (Booking) | Lead Backend Architect | Required before Jobs (EPIC-018) |
+| **POL-020** | Observability | Metrics cardinality, Sentry isolation & error thresholds | Hold conflicts, lock wait time, review age, and outbox age monitored; secrets scrubbed; errors trigger operational alerts | **Approved (v1.0)** | Platform Ops Lead | Observability Engineer | Required before Observability (EPIC-018) |
+| **POL-021** | Disaster Recovery | Backup coherence, Point-In-Time Restore & recovery verification | Physical backups and WAL archives verified via restore rehearsals ensuring table allocations, payments, and audit logs maintain relational invariants | **Approved (v1.0)** | Security & Compliance Lead | Lead Infrastructure Architect | Required before Recovery (EPIC-018) |
 | **GATE-001** | Refunds | Cancellation cutoff & refund deduction schedule | **UNRESOLVED**: Tiered refund policy (e.g. 100% refund > 24h, 50% 12-24h, 0% < 12h) vs flat cancellation fee | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Payments Engineer | **BLOCKS Live Payment Release** |
 | **GATE-002** | Finance | Merchant settlement fee deduction on cancellation | **UNRESOLVED**: Who absorbs payment gateway processing fees (2% + GST) on refund (Dine, Restaurant, or Guest) | **UNRESOLVED (GATE)** | Finance Controller | Payment Engine Lead | **BLOCKS Live Payment Release** |
 | **GATE-003** | Dispute | Manual review SLA for late UPI capture disputes | **UNRESOLVED**: Max time window for operational review of double-allocated or orphaned captures (24h target) | **UNRESOLVED (GATE)** | Customer Support Lead | Platform Ops Lead | **BLOCKS Live Payment Release** |
 | **GATE-004** | Packages | Dynamic pricing, multi-table joined parties, & split package billing | **UNRESOLVED**: Advanced event commerce, dynamic pricing, and multi-table package allocation | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Core Engine Lead | **BLOCKS Live Package Commerce** |
 | **GATE-005** | Customer Engagement | AI-driven review moderation, loyalty points, & social reviewer profiles | **UNRESOLVED**: Algorithmic sentiment moderation, reviewer reputation points, and social network integration | **UNRESOLVED (GATE)** | Growth & Trust PM | Platform Ops Lead | **BLOCKS Automated Moderation & Loyalty** |
 | **GATE-006** | Privacy vs Audit | Statutory financial audit preservation vs Right-to-be-Forgotten deletion | **UNRESOLVED**: Statutory conflict resolution between legal accounting/tax retention (7 years) and privacy erasure requests | **UNRESOLVED (GATE)** | Legal & Compliance Counsel | Lead Backend Architect | **BLOCKS Automated Purge Jobs** |
+| **GATE-007** | Distributed Workers | Multi-node background worker clustering & distributed lease arbitration | **UNRESOLVED**: Distributed multi-region active-active worker clustering and Redis/Raft locks beyond PostgreSQL SKIP LOCKED leases | **UNRESOLVED (GATE)** | Infrastructure Product Lead | Principal Distributed Systems Architect | **BLOCKS Multi-Node Distributed Worker Clustering** |
 
 ---
 
@@ -51,7 +56,7 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 
 > [!IMPORTANT]
 > In accordance with Acceptance Criterion 3 of EPIC-001 and Blueprint §19.1:
-> **No live financial transactions may be processed until GATE-001, GATE-002, GATE-003, GATE-004, GATE-005, and GATE-006 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
+> **No live financial transactions may be processed until GATE-001, GATE-002, GATE-003, GATE-004, GATE-005, GATE-006, and GATE-007 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
 
 ### Gate Detail: GATE-001 (Cancellation & Refund Rules)
 - **Current Status**: UNRESOLVED.
@@ -86,6 +91,11 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 - **Current Status**: UNRESOLVED.
 - **Problem**: How are GDPR/right-to-be-forgotten requests reconciled with statutory tax, commercial law, and financial audit obligations that mandate 7-year retention of booking and payment records?
 - **Resolution Requirement**: Mandatory profile anonymization (replacing PII with pseudonymous identifiers) while preserving immutable booking, payment, and audit references; arbitrary cascading database deletions are strictly forbidden (EPIC-017 / POL-017). Automated physical database purge jobs remain blocked until full legal audit sign-off.
+
+### Gate Detail: GATE-007 (Distributed Background Worker Clustering & Lease Arbitration Gate)
+- **Current Status**: UNRESOLVED.
+- **Problem**: How are multi-node background worker instances coordinated across distributed cloud regions without split-brain lease contention or out-of-order execution?
+- **Resolution Requirement**: Single-region PostgreSQL transactional leases using  are authoritative for the modular monolith MVP (EPIC-018 / POL-018). Multi-region active-active worker clusters and external Raft/Redis lease arbitration remain blocked until Phase 10 enterprise scalability audit.
 
 ---
 

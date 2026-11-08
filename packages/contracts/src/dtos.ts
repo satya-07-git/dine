@@ -23,6 +23,9 @@ import {
   SeatingPreference,
   SupportInterventionType,
   PrivacyErasureStatus,
+  BackgroundJobType,
+  BackgroundJobStatus,
+  WorkerStatus,
 } from './enums';
 
 export interface HealthResponseDto {
@@ -1327,4 +1330,148 @@ export interface PrivacyErasureResponseDto {
   financial_records_retained_count: number;
   audit_evidence_retained_count: number;
   message: string;
+}
+
+// ============================================================================
+// EPIC-018 Background Jobs, Observability and Recovery DTOs
+// ============================================================================
+
+export interface BackgroundJobDto {
+  id: string;
+  job_type: BackgroundJobType | string;
+  status: BackgroundJobStatus | string;
+  payload: Record<string, unknown>;
+  attempts: number;
+  max_attempts: number;
+  claimed_at?: string | null;
+  claimed_by?: string | null;
+  claim_expires_at?: string | null;
+  next_retry_at?: string | null;
+  last_error?: string | null;
+  dead_letter_reason?: string | null;
+  execution_duration_ms?: number | null;
+  result_summary?: Record<string, unknown> | null;
+  created_at: string;
+  completed_at?: string | null;
+}
+
+export interface TriggerJobRequestDto {
+  job_type: BackgroundJobType | string;
+  payload?: Record<string, unknown>;
+  max_attempts?: number;
+}
+
+export interface TriggerJobResponseDto {
+  job: BackgroundJobDto;
+  message: string;
+}
+
+export interface WorkerHeartbeatRequestDto {
+  worker_id: string;
+  worker_name: string;
+  hostname: string;
+  status?: WorkerStatus | string;
+  current_job_id?: string | null;
+  metrics?: {
+    processed_count: number;
+    error_count: number;
+    uptime_seconds: number;
+  };
+}
+
+export interface WorkerHeartbeatResponseDto {
+  worker_id: string;
+  status: WorkerStatus | string;
+  acknowledged_at: string;
+  is_healthy: boolean;
+}
+
+export interface WorkerSummaryDto {
+  worker_id: string;
+  worker_name: string;
+  hostname: string;
+  status: WorkerStatus | string;
+  last_heartbeat_at: string;
+  started_at: string;
+  current_job_id?: string | null;
+  metrics: {
+    processed_count: number;
+    error_count: number;
+    uptime_seconds: number;
+  };
+}
+
+export interface WorkerListResponseDto {
+  total: number;
+  active_count: number;
+  workers: WorkerSummaryDto[];
+}
+
+export interface DeadLetterJobListResponseDto {
+  total: number;
+  jobs: BackgroundJobDto[];
+}
+
+export interface RetryDeadLetterResponseDto {
+  job_id: string;
+  status: BackgroundJobStatus | string;
+  message: string;
+  requeued_at: string;
+}
+
+export interface OperationalMetricsQueryDto {
+  metric_name?: string;
+  since?: string;
+}
+
+export interface OperationalMetricsResponseDto {
+  hold_conflicts: number;
+  lock_wait_ms: number;
+  payment_review_age_seconds: number;
+  outbox_age_seconds: number;
+  error_rate_percent: number;
+  availability_read_p95_ms: number;
+  uncontended_hold_p95_ms: number;
+  recorded_at: string;
+}
+
+export interface DisasterRecoveryRehearsalDto {
+  snapshot_tag: string;
+  verify_invariants?: boolean;
+}
+
+export interface DisasterRecoveryReportDto {
+  rehearsal_id: string;
+  executed_at: string;
+  snapshot_tag: string;
+  status: 'RECOVERED_COHERENT' | 'INVARIANT_VIOLATIONS_DETECTED';
+  checks: {
+    allocation_overlap_count: number;
+    orphan_payment_count: number;
+    audit_chain_integrity: boolean;
+    unreconciled_holds_count: number;
+  };
+  details: string;
+}
+
+export interface PerformanceSloReportDto {
+  environment: string;
+  measured_at: string;
+  slo_benchmarks: {
+    availability_read: {
+      target: string;
+      measured_p95_ms: number;
+      compliant: boolean;
+    };
+    uncontended_hold: {
+      target: string;
+      measured_p95_ms: number;
+      compliant: boolean;
+    };
+    concurrency_winner_ratio: {
+      target: string;
+      measured: string;
+      compliant: boolean;
+    };
+  };
 }
