@@ -22,6 +22,7 @@ import { AuditSupportModule } from './modules/audit-support/audit-support.module
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { ReleaseVerificationModule } from './modules/release-verification/release-verification.module';
 import { FutureExtensionsModule } from './modules/future-extensions/future-extensions.module';
+import { V2CompatibilityModule } from './modules/v2-compatibility/v2-compatibility.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { FutureExtensionsModule } from './modules/future-extensions/future-exten
     ObservabilityModule,
     ReleaseVerificationModule,
     FutureExtensionsModule,
+    V2CompatibilityModule,
   ],
 })
 export class AppModule implements NestModule {

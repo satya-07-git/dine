@@ -32,6 +32,13 @@ import {
   DeferredExtensionId,
   ExtensionStatus,
   ScaleTriggerMetric,
+  InventoryClaimState,
+  ReservationHoldStatus,
+  V2ReservationStatus,
+  V2PaymentMode,
+  V2PaymentStatus,
+  V2RefundStatus,
+  V2IdempotencyRecordStatus,
 } from './enums';
 import { ProblemDetails, ErrorCode } from './errors';
 
@@ -1689,4 +1696,124 @@ export interface SimulateDeferredRouteResponseDto {
   error_code: ErrorCode | string;
   message: string;
   rfc7807_problem: ProblemDetails;
+}
+
+// ============================================================================
+// EPIC-021 Finalized V2 Contracts, Claims and Compatibility DTOs
+// ============================================================================
+
+export interface V2AcquireHoldRequestDto {
+  restaurantId: string;
+  tableId: string;
+  startsAt: string;
+  partySize: number;
+}
+
+export interface V2AcquireHoldResponseDto {
+  holdId: string;
+  status: ReservationHoldStatus | string;
+  tableId: string;
+  claimId: string;
+  expiresAt: string;
+  serverTime: string;
+  endsAt: string;
+  effectiveEndsAt: string;
+  payment: {
+    mode: V2PaymentMode | string;
+    amountPaise: number;
+    currency: string;
+  };
+}
+
+export interface V2FreeConfirmationRequestDto {
+  holdId: string;
+  restaurantId: string;
+  partySize: number;
+}
+
+export interface V2FreeConfirmationResponseDto {
+  reservationId: string;
+  bookingReference: string;
+  status: V2ReservationStatus | string;
+  tableId: string;
+  claimId: string;
+  confirmedAt: string;
+  startsAt: string;
+  endsAt: string;
+  paymentMode: V2PaymentMode | string;
+}
+
+export interface V2LatePaymentReconciliationRequestDto {
+  paymentId: string;
+  bookingId: string;
+  tableId: string;
+  amountPaise: number;
+}
+
+export interface V2LatePaymentReconciliationResponseDto {
+  reconciliationId: string;
+  action: 'REFUND_DISPATCHED' | 'PROCEED_CONFIRMATION' | 'MANUAL_ESCALATION';
+  bAllocatedKept: boolean;
+  refundInitiated: boolean;
+  refundAmountPaise: number;
+  message: string;
+}
+
+export interface V2CompatibilityMapResponseDto {
+  routeAliases: Array<{
+    method: string;
+    canonicalRoute: string;
+    legacyAlias: string;
+    status: 'ACTIVE' | 'DEPRECATED';
+  }>;
+  schemaAuthority: {
+    singleMigrationAuthority: string;
+    migrationDirectory: string;
+    prohibitedPatterns: string[];
+  };
+  claimModelMapping: {
+    legacyEntity: string;
+    v2Entity: string;
+    states: string[];
+    turnoverBufferRule: string;
+  };
+}
+
+export interface V2StateMatrixResponseDto {
+  claimStates: string[];
+  holdStates: string[];
+  reservationStates: string[];
+  paymentStates: string[];
+  reconciliationRules: string[];
+}
+
+export interface V2ConcurrencyProofRequestDto {
+  tableId?: string;
+  restaurantId?: string;
+  concurrencyCount?: number;
+}
+
+export interface V2ConcurrencyProofResponseDto {
+  totalRequests: number;
+  winners: number;
+  conflicts: number;
+  winnerHoldId: string;
+  exclusionEnforced: boolean;
+  conflictCode: string;
+  status: 'PASSED' | 'FAILED';
+}
+
+export interface V2SourceProvenanceResponseDto {
+  textSources: Array<{
+    name: string;
+    sha256: string;
+    status: 'VERIFIED';
+  }>;
+  diagrams: Array<{
+    id: string;
+    title: string;
+    sha256: string;
+    status: 'VERIFIED';
+  }>;
+  verifiedAt: string;
 }

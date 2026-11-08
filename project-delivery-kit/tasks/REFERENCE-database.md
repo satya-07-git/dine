@@ -35,19 +35,19 @@ Some relationships above appear in PRD/ERD but are missing from the pasted SQL t
 
 | Table | Fields / constraints provided | Delivery owner |
 | --- | --- | --- |
-| users | UUID, unique nonnull phone, name, created_at | 003 |
-| restaurants | UUID, name, timezone default Asia/Kolkata, ACTIVE/SUSPENDED | 004–005 |
+| users | UUID, unique nonnull phone, name, created_at | 022 |
+| restaurants | UUID, name, timezone default Asia/Kolkata, ACTIVE/SUSPENDED | 003–004 |
 | floor_plans | restaurant FK, version, name, is_active; UNIQUE(id,restaurant_id); one active plan per restaurant | 006 |
 | restaurant_tables | restaurant, composite floor FK, unique restaurant label, min/max capacity, x/y, ACTIVE/INACTIVE | 006 |
-| booking_policies | restaurant PK, FREE/DEPOSIT, amount_paise, hold_seconds default 120 / range 30–900, duration 90, buffer 15 | 005 |
+| booking_policies | restaurant PK, FREE/DEPOSIT, amount_paise, hold_seconds default 120 / range 30–900, duration 90, buffer 15 | 004 |
 | inventory_claims | restaurant/table composite FK, starts_at/ends_at, HELD/RESERVED/BLOCKED/RELEASED, expiry required for HELD | 008 |
-| reservation_holds | unique claim_id, composite claim FK, user, party size, expiry, ACTIVE/CONSUMED/EXPIRED/RELEASED | 010 |
-| reservations | unique booking_reference/hold_id/claim_id, composite table/hold/claim FKs, user, visible starts_at/ends_at, status, policy mode/amount | 012 |
-| payments | reservation FK, unique gateway order/payment IDs, positive amount_paise, currency and payment status | 013–014 |
-| payment_events | unique gateway_event_id, optional payment FK, type, payload, processed_at, received_at | 013 |
-| refunds | payment FK, unique gateway refund ID, positive amount_paise, status | 014 |
-| idempotency_records | actor, operation, key, request hash, response, status; UNIQUE(actor,operation,key) | 010 |
-| outbox_events | restaurant/aggregate/event type/payload/timestamps; unpublished index | 016 |
+| reservation_holds | unique claim_id, composite claim FK, user, party size, expiry, ACTIVE/CONSUMED/EXPIRED/RELEASED | 008 |
+| reservations | unique booking_reference/hold_id/claim_id, composite table/hold/claim FKs, user, visible starts_at/ends_at, status, policy mode/amount | 009 |
+| payments | reservation FK, unique gateway order/payment IDs, positive amount_paise, currency and payment status | 010–011 |
+| payment_events | unique gateway_event_id, optional payment FK, type, payload, processed_at, received_at | 010 |
+| refunds | payment FK, unique gateway refund ID, positive amount_paise, status | 011 |
+| idempotency_records | actor, operation, key, request hash, response, status; UNIQUE(actor,operation,key) | 008 |
+| outbox_events | restaurant/aggregate/event type/payload/timestamps; unpublished index | 013 |
 
 ## Active claim exclusion
 
@@ -80,16 +80,16 @@ Capture a fixed database clock_timestamp() after acquiring the physical table lo
 
 | Gap / source inconsistency | Required handling | Epic |
 | --- | --- | --- |
-| restaurant_staff, table_blocks, reservation_events appear in PRD/ERD but not supplied CREATE TABLE list | Add explicit schema/permissions and associations | 004, 015–016 |
-| A hold can reference one claim while reservation.claim_id could otherwise point to another | Enforce same claim/hold/table/restaurant/user relationship transactionally and/or with reviewed constraints/triggers | 008, 012 |
-| Claim effective interval differs from visible reservation end | Validate exact start and policy-derived buffer/end mapping, not naive equality of all end times | 008–009 |
-| Hold and claim expiry duplicated | Maintain expiry/owner/state consistency through controlled writers | 008–010 |
-| HELD one-to-one active hold / RESERVED reservation / BLOCKED authorized block | Define all association/state invariants, including transition/release semantics | 008, 012, 015 |
-| Refund failure missing in SQL but named in PRD; partial refund named only in SQL | Adopt explicit compatible state mapping and migrations; do not lose either financial outcome | 014 |
-| refunds.status unconstrained / aggregate refund amount bounds absent | Define legal states, idempotency and no over-refund invariant | 014 |
-| Auth sessions, audit, calendars and full policy history absent | Separate production migrations; do not treat core SQL as complete app schema | 003, 005, 019 |
-| outbox has no version/claim lease/retry/replay retention | Add dispatch coordination and durable recovery contract | 016, 020 |
-| Existing tables/migrations use older model | Additive mapping/backfill and invariant verification; one migration authority | 001–002, 008 |
+| restaurant_staff, table_blocks, reservation_events appear in PRD/ERD but not supplied CREATE TABLE list | Add explicit schema/permissions and associations | 003, 014–013 |
+| A hold can reference one claim while reservation.claim_id could otherwise point to another | Enforce same claim/hold/table/restaurant/user relationship transactionally and/or with reviewed constraints/triggers | 008, 009 |
+| Claim effective interval differs from visible reservation end | Validate exact start and policy-derived buffer/end mapping, not naive equality of all end times | 008–007 |
+| Hold and claim expiry duplicated | Maintain expiry/owner/state consistency through controlled writers | 008–008 |
+| HELD one-to-one active hold / RESERVED reservation / BLOCKED authorized block | Define all association/state invariants, including transition/release semantics | 008, 009, 014 |
+| Refund failure missing in SQL but named in PRD; partial refund named only in SQL | Adopt explicit compatible state mapping and migrations; do not lose either financial outcome | 011 |
+| refunds.status unconstrained / aggregate refund amount bounds absent | Define legal states, idempotency and no over-refund invariant | 011 |
+| Auth sessions, audit, calendars and full policy history absent | Separate production migrations; do not treat core SQL as complete app schema | 022, 004, 017 |
+| outbox has no version/claim lease/retry/replay retention | Add dispatch coordination and durable recovery contract | 013, 024 |
+| Existing tables/migrations use older model | Additive mapping/backfill and invariant verification; one migration authority | 021–002, 008 |
 
 Inventory-critical tables must be writable only through controlled application services/least-privilege roles. The supplied baseline does not implement all those permissions/triggers by itself.
 

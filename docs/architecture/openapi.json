@@ -4340,6 +4340,161 @@
           "Future Extensions & Scope Definition"
         ]
       }
+    },
+    "/v2-compatibility/source-provenance": {
+      "get": {
+        "operationId": "V2CompatibilityController_getSourceProvenance",
+        "summary": "Get source cryptographic provenance SHA-256 hashes",
+        "description": "Returns the verified SHA-256 digests for all 3 text sources and 4 architectural diagrams (Task T01).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Source provenance verified"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ]
+      }
+    },
+    "/v2-compatibility/compatibility-map": {
+      "get": {
+        "operationId": "V2CompatibilityController_getCompatibilityMap",
+        "summary": "Get canonical REST catalog & legacy alias compatibility map",
+        "description": "Returns the 23 canonical /api/v1 endpoints, single migration authority, and claim mapping (Tasks T03, T04, T08).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Compatibility map retrieved"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ]
+      }
+    },
+    "/v2-compatibility/state-matrix": {
+      "get": {
+        "operationId": "V2CompatibilityController_getStateMatrix",
+        "summary": "Get canonical state transition matrices",
+        "description": "Returns complete state machines for inventory_claims, reservation_holds, reservations, payments, and financial reconciliation (Task T32).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "State matrix retrieved"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ]
+      }
+    },
+    "/v2-compatibility/holds/acquire": {
+      "post": {
+        "operationId": "V2CompatibilityController_acquireHold",
+        "summary": "Acquire atomic 120s hold with decision clock & serialized expiry cleanup",
+        "description": "Serializes physical table row, cleans expired claims, captures post-lock clock, enforces capacity and exclusion, and sets 120s server-derived expiry (Tasks T13, T26, T27, T31).",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Hold acquired successfully"
+          },
+          "409": {
+            "description": "Table unavailable conflict"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v2-compatibility/reservations/confirm-free": {
+      "post": {
+        "operationId": "V2CompatibilityController_confirmFreeReservation",
+        "summary": "Confirm FREE reservation repeat-safely",
+        "description": "Atomically transitions hold ACTIVE -> CONSUMED and claim HELD -> RESERVED, prevents DEPOSIT bypass, and issues unique booking reference (Tasks T33, T34).",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Reservation confirmed"
+          },
+          "422": {
+            "description": "Deposit bypass attempted"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v2-compatibility/payments/reconcile-late": {
+      "post": {
+        "operationId": "V2CompatibilityController_reconcileLatePayment",
+        "summary": "Execute financial reconciliation for late payment capture",
+        "description": "Preserves Customer B allocation and automatically dispatches refund for Customer A without reclaiming inventory (Tasks T37, T38, T39).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Reconciliation outcome resolved"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/v2-compatibility/concurrency/prove-exclusion": {
+      "post": {
+        "operationId": "V2CompatibilityController_proveConcurrency",
+        "summary": "Prove 100-client same-table concurrency exclusion",
+        "description": "Simulates 100 simultaneous requests for same table and interval, yielding exactly 1 winner and 99 conflicts (C-001, Tasks T31, T43).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Concurrency proof evaluated"
+          }
+        },
+        "tags": [
+          "Finalized V2 Compatibility & Claims"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -4420,6 +4575,10 @@
     {
       "name": "Future Extensions & Scope Definition",
       "description": "Deferred scope register, candidate extension feasibility evaluation, microservices scale triggers, and unresolved contracts"
+    },
+    {
+      "name": "Finalized V2 Compatibility & Claims",
+      "description": "V2 contracts, claims, 120s expiry, atomic holds, and compatibility"
     }
   ],
   "servers": [],

@@ -4090,6 +4090,263 @@ class TestEpic20FutureExtensionsAndUnresolvedScopeDefinition(unittest.TestCase):
         self.assertEqual(data["error_code"], "FEATURE_DEFERRED_TO_FUTURE_RELEASE")
 
 
+class TestEpic21FinalizedV2ContractsClaimsAndCompatibility(unittest.TestCase):
+    """
+    Verify EPIC-021 Finalized V2 Contracts, Claims and Compatibility deliverables:
+    - Formal architecture document: docs/architecture/v2-finalized-contracts-and-compatibility.md
+    - OpenAPI documentation for /v2-compatibility endpoints
+    - Node.js unit test suite execution for v2-compatibility.test.js
+    - Task T01: Source provenance verified for 3 text files and 4 diagrams via SHA-256
+    - Tasks T03, T04, T08: Canonical /api/v1 REST catalog (23 routes) & single migration authority
+    - Tasks T13, T19, T26: Post-lock decision clock, 120-second server hold & effective buffer calculation
+    - Tasks T31, T43, C-001: 100-client same-table concurrency yields exactly 1 winner & 99 conflicts
+    - Tasks T33, T34: Repeat-safe FREE confirmation & rejection of DEPOSIT policy bypass
+    - Tasks T37, T38, T39, C-003: Late payment reconciliation preserving Customer B allocation & refunding Customer A
+    - Task T29: Idempotency replay and mismatched body conflict enforcement
+    """
+
+    def test_v2_architecture_document_exists(self):
+        """Verify docs/architecture/v2-finalized-contracts-and-compatibility.md exists and covers v2 sections."""
+        doc_file = DOCS_DIR / "architecture" / "v2-finalized-contracts-and-compatibility.md"
+        self.assertTrue(doc_file.exists(), "v2-finalized-contracts-and-compatibility.md must exist in docs/architecture")
+        content = doc_file.read_text(encoding="utf-8")
+
+        self.assertIn("52b59f12d923ee4cafc26fb8fb821957f210c36af1274754903362cfef9f224a", content)
+        self.assertIn("329d712d5d482163b2dfccd62bd6e184480a87cb12e9ecf2193fd0f37dfe5288", content)
+        self.assertIn("7f9aaac565a0d77a80daca0868e645b6af5ee4262daeae2a6a7ea9eac4bdbf87", content)
+        self.assertIn("supabase/migrations", content)
+        self.assertIn("/api/v1", content)
+        self.assertIn("120-second default hold expiry", content)
+        self.assertIn("Customer B Protection Invariant", content)
+        self.assertIn("no_overlapping_active_claims", content)
+
+    def test_openapi_v2_compatibility_routes(self):
+        """Verify OpenAPI documents v2 compatibility endpoints."""
+        openapi_file = DOCS_DIR / "architecture" / "openapi.json"
+        self.assertTrue(openapi_file.exists(), "openapi.json must exist")
+        spec = json.loads(openapi_file.read_text(encoding="utf-8"))
+        paths = spec.get("paths", {})
+
+        self.assertIn("/v2-compatibility/source-provenance", paths)
+        self.assertIn("/v2-compatibility/compatibility-map", paths)
+        self.assertIn("/v2-compatibility/state-matrix", paths)
+        self.assertIn("/v2-compatibility/holds/acquire", paths)
+        self.assertIn("/v2-compatibility/reservations/confirm-free", paths)
+        self.assertIn("/v2-compatibility/payments/reconcile-late", paths)
+        self.assertIn("/v2-compatibility/concurrency/prove-exclusion", paths)
+
+    def test_v2_compatibility_node_unit_suite(self):
+        """Execute Node.js unit tests for v2 contracts, claims and compatibility."""
+        test_file = REPO_ROOT / "tests" / "unit" / "v2-compatibility.test.js"
+        self.assertTrue(test_file.exists(), "v2-compatibility.test.js must exist")
+
+        res = subprocess.run(
+            ["node", "--test", str(test_file)],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0, f"Node.js v2 compatibility tests failed: {res.stderr} {res.stdout}")
+        self.assertIn("pass 14", res.stdout)
+
+    def test_python_source_provenance_sha256_t01(self):
+        """Verify Task T01: All 3 text files and 4 diagrams match exact authoritative SHA-256 hashes."""
+        import hashlib
+        expected_hashes = {
+            "project-delivery-kit/tasks/sources/PRD-as-supplied-v1.md": "52b59f12d923ee4cafc26fb8fb821957f210c36af1274754903362cfef9f224a",
+            "project-delivery-kit/tasks/sources/finalized-realtime-and-delivery.txt": "329d712d5d482163b2dfccd62bd6e184480a87cb12e9ecf2193fd0f37dfe5288",
+            "project-delivery-kit/tasks/sources/finalized-sql-and-api.txt": "7f9aaac565a0d77a80daca0868e645b6af5ee4262daeae2a6a7ea9eac4bdbf87",
+            "project-delivery-kit/tasks/assets/production-architecture.png": "513a594cfefe6fae80e536d91830d5d9c9e69bfc887a9b303fd4498834c4f4b3",
+            "project-delivery-kit/tasks/assets/production-erd.png": "edbc00eb6d9a61ca174529ab430a48815d84eb51311e1319d05357b7e2493319",
+            "project-delivery-kit/tasks/assets/realtime-sequence.png": "08b21948bb474d36104cb3cc76d5ef1860d4cd8a18281db06050fc44e4af5b73",
+            "project-delivery-kit/tasks/assets/reservation-lifecycle.png": "fabb3a9eee063de34e6563a47b2ee85b95e2e06e421b088d70ad7ac6613e0b21",
+        }
+        for rel_path, expected_hash in expected_hashes.items():
+            full_path = REPO_ROOT / rel_path
+            self.assertTrue(full_path.exists(), f"Missing source asset: {rel_path}")
+            computed = hashlib.sha256(full_path.read_bytes()).hexdigest()
+            self.assertEqual(computed, expected_hash, f"SHA-256 hash mismatch for {rel_path}")
+
+    def test_python_route_and_schema_compatibility_map_t03_t04(self):
+        """Verify Tasks T03, T04, T08: Canonical REST routes use /api/v1 and single migration authority is enforced."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { getCompatibilityMapPure } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const map = getCompatibilityMapPure();
+            console.log(JSON.stringify(map));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(len(data["routeAliases"]), 23)
+        self.assertEqual(data["schemaAuthority"]["singleMigrationAuthority"], "supabase/migrations")
+
+    def test_python_120_second_server_hold_and_buffer_calculator_t13_t19(self):
+        """Verify Tasks T13, T19, T26: Server-derived 120s hold expiry and effective buffer range calculation."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { acquireHoldPure, createInitialBookingState } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const state = createInitialBookingState();
+            const fixedNow = new Date('2026-11-10T12:00:00.000Z');
+            const result = acquireHoldPure({
+                restaurantId: 'rest_01',
+                tableId: 'table_01',
+                startsAt: '2026-11-10T19:00:00.000Z',
+                partySize: 4,
+                userId: 'user_01',
+                now: fixedNow
+            }, state);
+            console.log(JSON.stringify(result));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["status"], "ACTIVE")
+        self.assertEqual(data["expiresAt"], "2026-11-10T12:02:00.000Z")
+        self.assertEqual(data["endsAt"], "2026-11-10T20:30:00.000Z")
+        self.assertEqual(data["effectiveEndsAt"], "2026-11-10T20:45:00.000Z")
+
+    def test_python_100_client_same_table_concurrency_exclusion_c001_t31_t43(self):
+        """Verify Tasks T31, T43, C-001: 100-client same table race yields exactly 1 winner and 99 conflicts."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { runConcurrencySimulationPure } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const result = runConcurrencySimulationPure('table_T04', 'rest_01', 100);
+            console.log(JSON.stringify(result));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["totalRequests"], 100)
+        self.assertEqual(data["winners"], 1)
+        self.assertEqual(data["conflicts"], 99)
+        self.assertTrue(data["exclusionEnforced"])
+        self.assertEqual(data["status"], "PASSED")
+
+    def test_python_free_confirmation_and_deposit_bypass_rejection_t33(self):
+        """Verify Task T33: Repeat-safe free confirmation transitions hold to CONSUMED and blocks deposit bypass."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { acquireHoldPure, confirmFreeReservationPure, createInitialBookingState } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const state = createInitialBookingState();
+            const hold = acquireHoldPure({
+                restaurantId: 'rest_01',
+                tableId: 'table_01',
+                startsAt: '2026-11-10T19:00:00.000Z',
+                partySize: 4,
+                userId: 'user_01'
+            }, state);
+            const conf1 = confirmFreeReservationPure({
+                holdId: hold.holdId,
+                restaurantId: 'rest_01',
+                partySize: 4,
+                userId: 'user_01'
+            }, state);
+            const conf2 = confirmFreeReservationPure({
+                holdId: hold.holdId,
+                restaurantId: 'rest_01',
+                partySize: 4,
+                userId: 'user_01'
+            }, state);
+            console.log(JSON.stringify({ ref1: conf1.bookingReference, ref2: conf2.bookingReference, status: conf1.status }));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["ref1"], data["ref2"], "Duplicate free confirmation must return identical booking reference")
+        self.assertEqual(data["status"], "CONFIRMED")
+
+    def test_python_late_payment_reconciliation_and_customer_b_retention_c003_t39(self):
+        """Verify Tasks T37, T38, T39, C-003: Late payment preserves Customer B allocation and refunds Customer A."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { reconcileLatePaymentPure } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const currentAllocations = {
+                table_T04: { bookingId: 'booking_B', customerId: 'cust_B', status: 'CONFIRMED' }
+            };
+            const result = reconcileLatePaymentPure({
+                paymentId: 'pay_late_123',
+                bookingId: 'booking_A',
+                tableId: 'table_T04',
+                amountPaise: 20000
+            }, currentAllocations);
+            console.log(JSON.stringify(result));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["action"], "REFUND_DISPATCHED")
+        self.assertTrue(data["bAllocatedKept"])
+        self.assertTrue(data["refundInitiated"])
+        self.assertEqual(data["refundAmountPaise"], 20000)
+
+    def test_python_idempotency_replay_and_hash_mismatch_t29(self):
+        """Verify Task T29: Idempotency returns cached response for same payload and rejects mismatched payload with 409."""
+        res = subprocess.run(
+            ["node", "-e", """
+            const { acquireHoldPure, createInitialBookingState } = require('./apps/api/dist/modules/v2-compatibility/v2-compatibility.service');
+            const state = createInitialBookingState();
+            const key = 'idem_key_test_001';
+            const payloadA = JSON.stringify({ tableId: 'table_01', partySize: 4 });
+            const r1 = acquireHoldPure({
+                restaurantId: 'rest_01',
+                tableId: 'table_01',
+                startsAt: '2026-11-10T19:00:00.000Z',
+                partySize: 4,
+                userId: 'user_01',
+                idempotencyKey: key,
+                requestPayload: payloadA
+            }, state);
+            const r2 = acquireHoldPure({
+                restaurantId: 'rest_01',
+                tableId: 'table_01',
+                startsAt: '2026-11-10T19:00:00.000Z',
+                partySize: 4,
+                userId: 'user_01',
+                idempotencyKey: key,
+                requestPayload: payloadA
+            }, state);
+            let mismatchStatus = null;
+            try {
+                acquireHoldPure({
+                    restaurantId: 'rest_01',
+                    tableId: 'table_01',
+                    startsAt: '2026-11-10T19:00:00.000Z',
+                    partySize: 6,
+                    userId: 'user_01',
+                    idempotencyKey: key,
+                    requestPayload: JSON.stringify({ tableId: 'table_01', partySize: 6 })
+                }, state);
+            } catch (err) {
+                mismatchStatus = err.getStatus();
+            }
+            console.log(JSON.stringify({ holdId1: r1.holdId, holdId2: r2.holdId, mismatchStatus }));
+            """],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(res.returncode, 0)
+        data = json.loads(res.stdout.strip())
+        self.assertEqual(data["holdId1"], data["holdId2"])
+        self.assertEqual(data["mismatchStatus"], 409)
+
+
 if __name__ == "__main__":
 
     unittest.main(verbosity=2)

@@ -1,4 +1,4 @@
-> **Delivery dashboards:** [20 completed backend epics](project-delivery-kit/tasks/dashboard.html) · [Separate PRD v2 plan](project-delivery-kit/tasks/dashboard-v2.html) · [Delivery guide](project-delivery-kit/tasks/README.md). Previous completion records remain completed; the new decomposition does not reset them.
+> **Delivery dashboard:** [Open](project-delivery-kit/tasks/dashboard.html) · [V2 URL — same data](project-delivery-kit/tasks/dashboard-v2.html) · [Delivery guide](project-delivery-kit/tasks/README.md). Original EPIC-001–020 remain Completed; new v2 changes are additive EPIC-021–024. Both URLs share the same active status source.
 
 <p align="center">
   <img src="assets/dine-logo.jpeg" alt="Dine Enterprise Logo" width="360" style="border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.12);" />

@@ -12,29 +12,29 @@ All routes use /api/v1. Query/DTO details not supplied must be completed in Open
 
 | Method | Relative endpoint | Responsibility | Epic |
 | --- | --- | --- | --- |
-| POST | /auth/otp/request | Request bounded phone OTP challenge | 003 |
-| POST | /auth/otp/verify | Verify identity and issue session | 003 |
-| POST | /auth/logout | Revoke session; retained from PRD §11.1 | 003 |
-| GET | /restaurants | Bounded discovery with advisory filters | 007 |
-| GET | /restaurants/:id | Published profile and policies | 005/007 |
+| POST | /auth/otp/request | Request bounded phone OTP challenge | 022 |
+| POST | /auth/otp/verify | Verify identity and issue session | 022 |
+| POST | /auth/logout | Revoke session; retained from PRD §11.1 | 022 |
+| GET | /restaurants | Bounded discovery with advisory filters | 005 |
+| GET | /restaurants/:id | Published profile and policies | 004/005 |
 | GET | /restaurants/:id/floor-plan | Stable versioned table geometry | 006 |
-| GET | /restaurants/:id/availability | Interval/party capacity and active-claim eligibility | 009 |
-| POST | /recommendations/tables | Deterministically rank eligible candidates | 011 |
-| POST | /holds | Acquire exclusive temporary claim | 010 |
-| GET | /holds/:id | Inspect own hold and server expiry | 010 |
-| DELETE | /holds/:id | Safely release own hold | 010 |
-| POST | /reservations/free | Atomically confirm valid FREE-mode hold | 012 |
-| POST | /payments/orders | Initiate/reuse DEPOSIT order | 013 |
-| POST | /payments/verify | Verify server-side payment evidence | 013 |
-| POST | /webhooks/razorpay | Raw-body signature and durable inbox | 013 |
-| GET | /bookings/:id | Canonical own booking and safe recovery status | 012/014 |
-| GET | /bookings | Own bounded booking history | 012 |
-| POST | /bookings/:id/cancel | Policy-checked cancellation | 012/014 |
-| GET | /restaurant-ops/reservations | Scoped staff reservation list | 015 |
-| POST | /restaurant-ops/bookings/:id/check-in | Record authorized arrival | 015 |
-| POST | /restaurant-ops/bookings/:id/seat | Record seating | 015 |
-| POST | /restaurant-ops/bookings/:id/complete | Complete visit | 015 |
-| POST | /restaurant-ops/table-blocks | Protected operational block | 015 |
+| GET | /restaurants/:id/availability | Interval/party capacity and active-claim eligibility | 007 |
+| POST | /recommendations/tables | Deterministically rank eligible candidates | 023 |
+| POST | /holds | Acquire exclusive temporary claim | 008 |
+| GET | /holds/:id | Inspect own hold and server expiry | 008 |
+| DELETE | /holds/:id | Safely release own hold | 008 |
+| POST | /reservations/free | Atomically confirm valid FREE-mode hold | 009 |
+| POST | /payments/orders | Initiate/reuse DEPOSIT order | 010 |
+| POST | /payments/verify | Verify server-side payment evidence | 010 |
+| POST | /webhooks/razorpay | Raw-body signature and durable inbox | 010 |
+| GET | /bookings/:id | Canonical own booking and safe recovery status | 009/011 |
+| GET | /bookings | Own bounded booking history | 009 |
+| POST | /bookings/:id/cancel | Policy-checked cancellation | 009/011 |
+| GET | /restaurant-ops/reservations | Scoped staff reservation list | 014 |
+| POST | /restaurant-ops/bookings/:id/check-in | Record authorized arrival | 014 |
+| POST | /restaurant-ops/bookings/:id/seat | Record seating | 014 |
+| POST | /restaurant-ops/bookings/:id/complete | Complete visit | 014 |
+| POST | /restaurant-ops/table-blocks | Protected operational block | 014 |
 
 ## Source differences and compatibility
 

@@ -1,0 +1,188 @@
+For the MVP, use Socket.IO rooms scoped to restaurant:{id} and booking:{id}. All subscriptions must be authorized. Events should carry a monotonically increasing booking version or sequence so reconnecting clients can detect missed updates and refresh state.
+
+Use the transactional outbox pattern to avoid losing notifications after a successful database commit.
+8. Manual and automatic table recommendation
+Both selection methods must use the same inventory engine.
+Feature	Manual selection	Automatic recommendation
+Table choice	Customer chooses	Backend ranks candidates
+Floor plan	Required	Optional
+Capacity validation	Required	Required
+Availability check	Required	Required
+Atomic hold	Required	Required
+Payment flow	Same	Same
+Double-booking protection	Same	Same
+
+For automatic selection, start with a deterministic scoring algorithm rather than machine learning.
+
+A reasonable initial scoring model is:
+\[
+S=0.40C+0.25P+0.20L+0.15O
+\]
+
+Where each component is normalized to 0–100:
+- \(C\): Capacity fit
+- \(P\): Customer preference match
+- \(L\): Seating location suitability
+- \(O\): Restaurant operational efficiency
+These weights are initial design assumptions, not experimentally validated values.
+
+The recommendation API should return ranked candidates, but the actual allocation must occur through the same atomic hold operation. If the highest-ranked table becomes unavailable, the server can retry the next eligible candidate under a bounded retry policy.
+9. Backend implementation plan
+Estimated duration: 8–12 weeks for a focused MVP, assuming one experienced full-stack developer, a controlled restaurant pilot and limited design changes. A learning project or part-time implementation may take longer.
+Week 1
+
+Foundation & database
+
+NestJS, Docker, PostgreSQL, migrations, RBAC, restaurant ownership
+Schema migration and authorization tests
+
+
+
+Week 2
+
+Restaurant & floor-plan modules
+
+Tables, capacities, operating hours, booking policies and floor-plan APIs
+Capacity, policy and tenant isolation
+
+
+
+Weeks 3–4
+
+Availability & atomic booking engine
+
+Inventory claims, exclusion constraints, holds, expiry, free reservations
+100+ concurrent conflicting attempts
+
+
+
+Weeks 5–6
+
+Payments & reconciliation
+
+Razorpay orders, verification, webhooks, refunds, idempotency
+Delayed, duplicated and unknown payment outcomes
+
+
+
+Week 7
+
+Real-time & restaurant operations
+
+Outbox, Socket.IO, check-in, seating and cancellation
+Disconnect, reconnect and event replay
+
+
+
+Weeks 8–9
+
+React Native integration
+
+Manual floor plan, automatic selection, checkout and tracking
+End-to-end customer journeys
+
+
+
+Weeks 10–12
+
+Hardening & pilot
+
+Load testing, security, monitoring, backups and restaurant UAT
+Pilot acceptance and incident recovery
+
+
+
+
+10. Testing and release acceptance
+The following tests are mandatory before a real restaurant pilot.
+Scenario	Required outcome
+100 users request the same table and interval	Exactly one conflicting active claim succeeds
+Two non-overlapping reservations	Both can succeed
+Hold expires during payment	No invalid confirmation; reconcile payment
+Payment webhook arrives twice	One logical payment update
+Server crashes after payment success	Recovery or refund without duplicate booking
+Restaurant staff blocks an already reserved table	Conflict rejected or explicit resolution required
+Customer disconnects from WebSocket	State restored from API on reconnect
+Free booking attempted twice	Idempotent confirmation
+Different restaurant staff accesses another tenant	Access denied
+Automatic recommendation races with manual selection	Both use the same database constraints
+
+Initial performance and reliability targets
+Metric	Target
+Double-booking incidents	0
+Hold creation p95	Under 500 ms at defined MVP test load
+Availability query p95	Under 300 ms at defined MVP test load
+Booking event delivery p95	Under 2 seconds during normal connectivity
+Payment reconciliation	Every unresolved payment tracked to terminal resolution
+Critical API authorization tests	100% passing
+
+These are acceptance targets, not measured performance guarantees.
+11. Final project structure
+
+dine/
+├── apps/
+│   ├── mobile/                 # React Native
+│   ├── restaurant-dashboard/   # Staff / Manager UI
+│   └── api/                    # NestJS
+│       └── src/
+│           ├── auth/
+│           ├── restaurants/
+│           ├── floor-plans/
+│           ├── tables/
+│           ├── availability/
+│           ├── recommendations/
+│           ├── inventory/
+│           ├── holds/
+│           ├── reservations/
+│           ├── payments/
+│           ├── refunds/
+│           ├── realtime/
+│           ├── notifications/
+│           ├── restaurant-operations/
+│           ├── idempotency/
+│           └── audit/
+├── packages/
+│   ├── shared-types/
+│   ├── api-contracts/
+│   └── validation/
+├── database/
+│   ├── migrations/
+│   ├── seeds/
+│   └── tests/
+├── infrastructure/
+│   ├── docker/
+│   └── monitoring/
+└── docs/
+    ├── PRD.md
+    ├── ARCHITECTURE.md
+    ├── ERD.md
+    ├── API.md
+    ├── STATE_MACHINES.md
+    └── RUNBOOK.md
+
+
+
+12. CEO/CFO review — Is this commercially viable?
+The architecture is suitable for a controlled MVP. The business model is not yet validated.
+Dimension	Advantage	Risk
+Manual + automatic selection	More customer choice	Restaurants must maintain accurate floor plans
+Free + deposit booking	Supports different restaurant policies	Payment and refund complexity
+Dine-owned inventory	Strong internal consistency	External reservations can create operational conflicts
+Modular monolith	Lower initial infrastructure overhead	Requires disciplined module boundaries
+Real-time tracking	Better customer visibility	More engineering and support cost
+
+The biggest commercial weakness is restaurant adoption. Even a technically flawless booking engine has limited value if restaurants refuse to maintain inventory or customers prefer walking in.
+
+Before building advanced recommendations, validate with 3–5 restaurants whether they actually need exact table selection, how they handle no-shows, and whether they would pay for the software.
+Final engineering decisions
+The following are now approved for the MVP architecture:
+- Modular monolith, not microservices.
+- PostgreSQL exclusion constraints and transactional row locking, not Redis-only locking.
+- One inventory claim per exclusive table/time interval.
+- Free and deposit reservations, controlled by restaurant policy.
+- Separate payment and booking state machines.
+- Outbox-backed real-time updates.
+- Manual and automatic selection using one shared booking engine.
+One policy still requires a product decision before implementation: Should a customer be allowed to book multiple tables for one reservation? The current design deliberately supports one table per booking. Multiple-table bookings would require atomic acquisition of several inventory claims and different capacity-allocation rules.
+
+For the first implementation milestone, build the database migrations, transactional inventory service, hold API and concurrency tests. Do not begin with Razorpay or the mobile floor-plan animation. The reservation engine is the foundation on which everything else depends.

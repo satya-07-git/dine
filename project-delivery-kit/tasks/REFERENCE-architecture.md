@@ -10,12 +10,12 @@ Sources: latest finalized user decisions; PRD §8/21; supplied SQL baseline §3�
 
 | Decision | Final specification | Epic |
 | --- | --- | --- |
-| Table selection | Manual floor plan + deterministic best-available recommendation | 006, 009–011 |
-| Payment | FREE or restaurant-configured DEPOSIT | 005, 012–014 |
-| Inventory authority | Dine PostgreSQL; never Redis or WebSocket delivery | 008–010 |
-| Backend | NestJS + TypeScript modular monolith | 001–002 |
-| Client | React Native + TypeScript, implementation deferred | 024 handoff |
-| Realtime | Socket.IO/WebSockets + database-backed event recovery | 016–017 |
+| Table selection | Manual floor plan + deterministic best-available recommendation | 006, 007–023 |
+| Payment | FREE or restaurant-configured DEPOSIT | 004, 009–011 |
+| Inventory authority | Dine PostgreSQL; never Redis or WebSocket delivery | 008–008 |
+| Backend | NestJS + TypeScript modular monolith | 021–002 |
+| Client | React Native + TypeScript, implementation deferred | 020 handoff |
+| Realtime | Socket.IO/WebSockets + database-backed event recovery | 013–024 |
 
 ## Context and infrastructure
 
@@ -43,26 +43,26 @@ NestJS verifies sessions/RBAC, evaluates policy, coordinates claims/holds/reserv
 
 | Target module | Owns / boundary | Epic |
 | --- | --- | --- |
-| auth / users | Phone OTP, identity, sessions/revocation | 003 |
-| restaurant staff / RBAC | Onboarding, membership, manager/staff scope | 004 |
-| restaurants / policies | Calendar, duration, buffer, FREE/DEPOSIT snapshot | 005 |
+| auth / users | Phone OTP, identity, sessions/revocation | 022 |
+| restaurant staff / RBAC | Onboarding, membership, manager/staff scope | 003 |
+| restaurants / policies | Calendar, duration, buffer, FREE/DEPOSIT snapshot | 004 |
 | floor-plans / tables | Stable physical table identity and versioned geometry | 006 |
-| discovery | Bounded public search and advisory availability filters | 007 |
+| discovery | Bounded public search and advisory availability filters | 005 |
 | inventory | Exclusive HELD/RESERVED/BLOCKED claims and consistency | 008 |
-| availability | Restaurant-local intervals and capacity/range eligibility | 009 |
-| holds / idempotency | Atomic acquire/release/expiry and original-result replay | 010 |
-| recommendations | Deterministic ranking and bounded automatic fallback | 011 |
-| reservations | Free confirmation and separate booking lifecycle | 012 |
-| payments | Server orders, verification and gateway inbox | 013 |
-| refunds / reconciliation | Unknown/late money and idempotent compensation | 014 |
-| restaurant-operations | Check-in, seating, completion, no-show, blocks, manual entries | 015 |
-| events / outbox | Same-transaction history, version and recoverable dispatch | 016 |
-| realtime | Authenticated rooms, private payloads, resync/replay | 017 |
-| notifications | Optional push and reminders behind adapters | 018 |
-| admin / audit | Controlled support and immutable evidence | 019 |
-| workers / observability | BullMQ, Redis loss recovery, monitoring, restore | 020 |
-| verification | Database races, security, financial faults and pilot gates | 021 |
-| optional extensions | Waitlist and product analytics | 022–023 |
+| availability | Restaurant-local intervals and capacity/range eligibility | 007 |
+| holds / idempotency | Atomic acquire/release/expiry and original-result replay | 008 |
+| recommendations | Deterministic ranking and bounded automatic fallback | 023 |
+| reservations | Free confirmation and separate booking lifecycle | 009 |
+| payments | Server orders, verification and gateway inbox | 010 |
+| refunds / reconciliation | Unknown/late money and idempotent compensation | 011 |
+| restaurant-operations | Check-in, seating, completion, no-show, blocks, manual entries | 014 |
+| events / outbox | Same-transaction history, version and recoverable dispatch | 013 |
+| realtime | Authenticated rooms, private payloads, resync/replay | 024 |
+| notifications | Optional push and reminders behind adapters | 013 |
+| admin / audit | Controlled support and immutable evidence | 017 |
+| workers / observability | BullMQ, Redis loss recovery, monitoring, restore | 024 |
+| verification | Database races, security, financial faults and pilot gates | 019 |
+| optional extensions | Waitlist and product analytics | 012–020 |
 
 ## Internal layering
 

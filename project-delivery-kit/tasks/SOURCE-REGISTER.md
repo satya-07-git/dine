@@ -41,10 +41,12 @@ The image files are unchanged copies of the four supplied diagrams. The generate
 
 ## History and implementation boundary
 
-Before the rebaseline, the entire task directory was copied to `../archive/pre-prd-v2-2026-11-08/`. It contains the exact prior epic completion reports and dashboard. The active IDs are a new v2 decomposition; the same numeric ID may describe different work than the historical kit. Use baseline-qualified IDs (for example `v2 / EPIC-011`) in communication.
+The original completed baseline is preserved in ../archive/pre-prd-v2-2026-11-08/. The incorrectly renumbered v2 draft is preserved in ../archive/prd-v2-before-stable-ids/.
 
-Existing code, migrations, test files and architectural documents outside the planning kit are retained. The current task updates the delivery plan/dashboard only. Active epics begin backlog (Future scope blocked) because this task does not retest runtime conformance to changed v2 requirements. This is not a claim that existing implementation was removed or that old verification failed.
+The active plan now restores original EPIC-001–020 with their exact original names and completed reports. Only new finalized-v2 upgrade work uses EPIC-021–024. Both dashboard.html and dashboard-v2.html are aliases generated from these same active files. Historical completion is not reset by a new PRD or transferred onto unrelated new requirements.
 
-## Open implementation decisions, not missing user finalization
+Runtime code, migrations and prior tests remain unchanged by this status/planning correction. Completed original work and pending new deltas are distinct, visible records in one dashboard. Technical reference epic pointers have been updated to stable IDs.
 
-The architecture/product choices above are fixed. Still define provider/session mechanics, migration/route compatibility, refund-state mapping, replay retention, exact scoring formulas/tie-break/bounded retries, staff guest-entry schema and cancellation/no-show/refund/settlement/retention policies in their owning epics. These engineering/operational decisions do not reopen the finalized selection/payment/authority architecture.
+## Open implementation decisions
+
+Fixed architecture/product decisions remain authoritative. New v2 upgrade epics resolve migration and route compatibility, OTP/session mechanics, exact scoring, claim consistency, expiry and finance recovery, refund-state mapping and Socket.IO/BullMQ recovery. Product frontend remains deferred. Missing financial/operational policy details remain release gates rather than invented approvals.

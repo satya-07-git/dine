@@ -266,3 +266,58 @@ export enum ScaleTriggerMetric {
   ENGINEERING_TEAM_CONTENTION = 'ENGINEERING_TEAM_CONTENTION',
   P95_LATENCY_BREACH = 'P95_LATENCY_BREACH',
 }
+
+// EPIC-021 Finalized V2 Contracts, Claims and Compatibility Enums
+export enum InventoryClaimState {
+  HELD = 'HELD',
+  RESERVED = 'RESERVED',
+  BLOCKED = 'BLOCKED',
+  RELEASED = 'RELEASED',
+}
+
+export enum ReservationHoldStatus {
+  ACTIVE = 'ACTIVE',
+  CONSUMED = 'CONSUMED',
+  EXPIRED = 'EXPIRED',
+  RELEASED = 'RELEASED',
+}
+
+export enum V2ReservationStatus {
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
+  CONFIRMED = 'CONFIRMED',
+  CHECKED_IN = 'CHECKED_IN',
+  SEATED = 'SEATED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  EXPIRED = 'EXPIRED',
+  NO_SHOW = 'NO_SHOW',
+}
+
+export enum V2PaymentMode {
+  FREE = 'FREE',
+  DEPOSIT = 'DEPOSIT',
+}
+
+export enum V2PaymentStatus {
+  CREATED = 'CREATED',
+  PENDING = 'PENDING',
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED = 'FAILED',
+  REFUND_PENDING = 'REFUND_PENDING',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum V2RefundStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  SUCCEEDED = 'SUCCEEDED',
+  FAILED = 'FAILED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+}
+
+export enum V2IdempotencyRecordStatus {
+  PENDING = 'PENDING',
+  RESOLVED = 'RESOLVED',
+  CONFLICT = 'CONFLICT',
+}

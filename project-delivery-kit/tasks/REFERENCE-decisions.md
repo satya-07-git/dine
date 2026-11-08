@@ -29,11 +29,11 @@ Sources: finalized user decisions, PRD §2/3/15–21, SQL §3–6 and realtime s
 
 Must: OTP/session security, restaurant/staff access, listings, floor/table inventory, interval availability, atomic holds/expiry, manual + automatic selection, free and deposit confirmation, reconciliation, realtime recovery, staff operations, audit, operational reliability and real concurrency tests.
 
-Should: optional push/reminders (018), waitlist (022), product analytics/commercial validation tooling (023). They do not block core v2 acceptance unless pilot scope explicitly selects them. Previous mandatory waitlist/OFFER_HELD semantics are not silently carried into the new four-state claim model.
+Should: optional push/reminders (013), waitlist (012), product analytics/commercial validation tooling (020). They do not block core v2 acceptance unless pilot scope explicitly selects them. Previous mandatory waitlist/OFFER_HELD semantics are not silently carried into the new four-state claim model.
 
 Future: multi-table, joined/split seating, POS, dynamic pricing, loyalty, subscription billing, occupancy forecasting, AI optimization and a separately designed payment-processing lease. Frontend coding remains deferred; full customer/staff UAT still requires later client integration.
 
-Packages, menus, eligible reviews and preference management were broader old-blueprint modules, not required standalone v2 epics. Preferences used as recommendation input may need a bounded contract in 011. Preserve existing implementation as legacy/reuse candidate without asserting all these modules are now Must scope.
+Packages, menus, eligible reviews and preference management were broader old-blueprint modules, not required standalone v2 epics. Preferences used as recommendation input may need a bounded contract in 023. Preserve existing implementation as legacy/reuse candidate without asserting all these modules are now Must scope.
 
 ## Canonical staff permission intent
 
@@ -50,19 +50,19 @@ Exact role/resource/action resolver and tenant list/export scoping must be teste
 
 | ID / scenario | Required outcome | Epic |
 | --- | --- | --- |
-| C-001: 100 valid conflicting hold requests | Exactly one active claim succeeds; others conflict/controlled non-success; no duplicate confirmation | 008/010/021 |
-| C-002: two nonoverlapping eligible ranges | Both may succeed; effective cleanup buffers respected | 009/010 |
-| C-003: capture after expiry and B claim | No invalid A confirmation or B claim theft; financial recovery | 014 |
-| C-004: duplicated gateway events | One logical payment update; no duplicate booking/refund | 013/014 |
-| C-005: crash after verified payment before confirmation | Durable recovery or refund without duplicate booking | 013/014 |
-| C-006: two staff + customer conflicting operations | Same lock/exclusion; at most one conflicting operation succeeds | 008/015 |
-| Manual vs automatic selection race | Same database constraints and one claim | 010/011 |
-| Free confirm twice | Original logical booking/reference once | 012 |
-| Staff block overlaps confirmed booking | Reject or explicit audited resolution; no silent cancellation | 015 |
-| Customer disconnects / misses version | Authorized API/database history restores state | 016/017 |
-| Foreign tenant REST/room access | Denied server-side | 004/017 |
-| Hold expires during gateway uncertainty | Release inventory per serialized expiry; continue money reconciliation | 010/014 |
-| Redis queue lost/server restarted | Reconstruct pending work from durable PostgreSQL | 016/020 |
+| C-001: 100 valid conflicting hold requests | Exactly one active claim succeeds; others conflict/controlled non-success; no duplicate confirmation | 008/008/019 |
+| C-002: two nonoverlapping eligible ranges | Both may succeed; effective cleanup buffers respected | 007/008 |
+| C-003: capture after expiry and B claim | No invalid A confirmation or B claim theft; financial recovery | 011 |
+| C-004: duplicated gateway events | One logical payment update; no duplicate booking/refund | 010/011 |
+| C-005: crash after verified payment before confirmation | Durable recovery or refund without duplicate booking | 010/011 |
+| C-006: two staff + customer conflicting operations | Same lock/exclusion; at most one conflicting operation succeeds | 008/014 |
+| Manual vs automatic selection race | Same database constraints and one claim | 008/023 |
+| Free confirm twice | Original logical booking/reference once | 009 |
+| Staff block overlaps confirmed booking | Reject or explicit audited resolution; no silent cancellation | 014 |
+| Customer disconnects / misses version | Authorized API/database history restores state | 013/024 |
+| Foreign tenant REST/room access | Denied server-side | 003/024 |
+| Hold expires during gateway uncertainty | Release inventory per serialized expiry; continue money reconciliation | 008/011 |
+| Redis queue lost/server restarted | Reconstruct pending work from durable PostgreSQL | 013/024 |
 
 “At most one” is the safety invariant, but the healthy seeded C-001 acceptance must also prove progress: exactly one success rather than all requests failing. An in-memory lock demo cannot prove the real PostgreSQL constraint path.
 
