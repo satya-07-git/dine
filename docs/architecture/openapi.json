@@ -3290,6 +3290,405 @@
           }
         ]
       }
+    },
+    "/restaurants/{restaurantId}/reviews": {
+      "get": {
+        "operationId": "CustomerEngagementController_getPublicReviews",
+        "summary": "Get published reviews for a restaurant",
+        "description": "Returns approved public reviews and aggregate rating. Masks customer identity and strips private notes to preserve guest privacy (AC4).",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public reviews and rating summary"
+          },
+          "404": {
+            "description": "Restaurant not found or unpublished"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ]
+      },
+      "post": {
+        "operationId": "CustomerEngagementController_createReview",
+        "summary": "Submit a verified customer review",
+        "description": "Requires verified dining evidence: booking must be COMPLETED, belong to the caller, and match the restaurant (AC1 & AC2). Single review per booking enforced.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Review submitted successfully"
+          },
+          "400": {
+            "description": "Invalid rating bounds or missing fields"
+          },
+          "403": {
+            "description": "Customer does not own booking"
+          },
+          "409": {
+            "description": "Review already exists for this booking"
+          },
+          "422": {
+            "description": "Review not eligible (booking not COMPLETED)"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/favorites": {
+      "get": {
+        "operationId": "CustomerEngagementController_getFavorites",
+        "summary": "List authenticated customer favorites",
+        "description": "Retrieves all restaurants saved as favorites by the caller.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Customer favorites list"
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "CustomerEngagementController_addFavorite",
+        "summary": "Add a restaurant to favorites",
+        "description": "Repeat-safe write operation. If already favorited, returns existing favorite without duplicate insertion (AC3).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Restaurant was already favorited (repeat-safe idempotent)"
+          },
+          "201": {
+            "description": "Restaurant favorited successfully"
+          },
+          "404": {
+            "description": "Restaurant not found or unpublished"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/favorites/{restaurantId}": {
+      "delete": {
+        "operationId": "CustomerEngagementController_removeFavorite",
+        "summary": "Remove a restaurant from favorites",
+        "description": "Idempotent deletion of a restaurant from customer favorites.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restaurant removed from favorites"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/favorites/{restaurantId}/status": {
+      "get": {
+        "operationId": "CustomerEngagementController_isFavorite",
+        "summary": "Check if restaurant is favorited",
+        "description": "Returns boolean whether caller has favorited this restaurant.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Favorite status boolean"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/preferences": {
+      "get": {
+        "operationId": "CustomerEngagementController_getPreferences",
+        "summary": "Get customer dining preferences",
+        "description": "Returns caller personal dining preferences (dietary, seating, allergies). Rejects cross-customer access (AC1).",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Customer dining preferences"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "CustomerEngagementController_updatePreferences",
+        "summary": "Update customer dining preferences",
+        "description": "Upserts dietary requirements, seating preferences, and allergy notes. Preserves privacy boundaries.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Preferences updated successfully"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/me/reviews": {
+      "get": {
+        "operationId": "CustomerEngagementController_getCustomerReviews",
+        "summary": "List authenticated customer reviews",
+        "description": "Retrieves all reviews authored by the caller.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Customer review history"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/reviews": {
+      "get": {
+        "operationId": "CustomerEngagementController_getOwnerReviews",
+        "summary": "List all restaurant reviews for staff management",
+        "description": "Retrieves reviews for the restaurant including flagged and pending reviews.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of venue reviews"
+          },
+          "403": {
+            "description": "Unauthorized cross-tenant access"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/reviews/{reviewId}/response": {
+      "patch": {
+        "operationId": "CustomerEngagementController_respondToReview",
+        "summary": "Post an official restaurant response to a customer review",
+        "description": "Attaches or updates the venue management response.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "description": "Review UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Response attached successfully"
+          },
+          "403": {
+            "description": "Unauthorized cross-tenant access"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/reviews/{reviewId}/moderate": {
+      "patch": {
+        "operationId": "CustomerEngagementController_moderateReview",
+        "summary": "Moderate a customer review",
+        "description": "Updates review publication status (PUBLISHED, HIDDEN, FLAGGED) with moderation audit notes.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reviewId",
+            "required": true,
+            "in": "path",
+            "description": "Review UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Review status moderated successfully"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/owner/restaurants/{id}/bookings/{bookingId}/preferences": {
+      "get": {
+        "operationId": "CustomerEngagementController_getBookingPreferencesForStaff",
+        "summary": "View guest dining preferences for a booking",
+        "description": "Allows staff to see dietary requirements and allergies strictly for table service in an active venue booking.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bookingId",
+            "required": true,
+            "in": "path",
+            "description": "Booking UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Guest dining preferences"
+          }
+        },
+        "tags": [
+          "Customer Engagement"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
     }
   },
   "info": {
@@ -3350,6 +3749,10 @@
     {
       "name": "Dining Experiences & Packages",
       "description": "Restaurant packages, tasting menus, and celebration options"
+    },
+    {
+      "name": "Customer Engagement",
+      "description": "Customer favorites, verified dining reviews, and dining preferences"
     }
   ],
   "servers": [],

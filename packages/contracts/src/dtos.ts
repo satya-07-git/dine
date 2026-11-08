@@ -19,6 +19,8 @@ import {
   NotificationChannel,
   NotificationDeliveryStatus,
   RealtimeTopicType,
+  ReviewStatus,
+  SeatingPreference,
 } from './enums';
 
 export interface HealthResponseDto {
@@ -1018,4 +1020,143 @@ export interface UpdatePackageRequestDto {
   max_party_size?: number;
   is_published?: boolean;
   terms_and_conditions?: string;
+}
+
+// ============================================================================
+// EPIC-016 Favorites, Reviews and Customer Preferences DTOs
+// ============================================================================
+
+export interface FavoriteRestaurantDto {
+  id: string;
+  restaurant_id: string;
+  user_id: string;
+  created_at: string;
+  restaurant_name?: string;
+  restaurant_cuisine?: string;
+  cover_image_url?: string | null;
+  price_tier?: string;
+}
+
+export interface AddFavoriteRequestDto {
+  restaurant_id: string;
+}
+
+export interface AddFavoriteResponseDto {
+  success: boolean;
+  is_new: boolean;
+  favorite: FavoriteRestaurantDto;
+}
+
+export interface RemoveFavoriteResponseDto {
+  success: boolean;
+  restaurant_id: string;
+  message: string;
+}
+
+export interface FavoriteListResponseDto {
+  items: FavoriteRestaurantDto[];
+  total: number;
+}
+
+export interface CustomerPreferenceDto {
+  id: string;
+  user_id: string;
+  dietary_requirements: string[];
+  seating_preference: SeatingPreference | string;
+  allergies: string[];
+  special_notes?: string | null;
+  marketing_opt_in: boolean;
+  created_at?: string;
+  updated_at: string;
+}
+
+export interface UpdateCustomerPreferenceDto {
+  dietary_requirements?: string[];
+  seating_preference?: SeatingPreference | string;
+  allergies?: string[];
+  special_notes?: string | null;
+  marketing_opt_in?: boolean;
+}
+
+export interface CreateReviewRequestDto {
+  booking_id: string;
+  rating: number;
+  title?: string;
+  comment: string;
+}
+
+export interface PublicReviewDto {
+  id: string;
+  restaurant_id: string;
+  rating: number;
+  title?: string | null;
+  comment: string;
+  customer_display_name: string;
+  created_at: string;
+  owner_response?: string | null;
+  owner_responded_at?: string | null;
+}
+
+export interface PublicReviewListResponseDto {
+  restaurant_id: string;
+  average_rating: number;
+  total_reviews: number;
+  reviews: PublicReviewDto[];
+}
+
+export interface CustomerReviewDetailDto {
+  id: string;
+  restaurant_id: string;
+  restaurant_name?: string;
+  booking_id: string;
+  rating: number;
+  title?: string | null;
+  comment: string;
+  status: ReviewStatus | string;
+  created_at: string;
+  updated_at: string;
+  owner_response?: string | null;
+  owner_responded_at?: string | null;
+}
+
+export interface OwnerReviewDto {
+  id: string;
+  restaurant_id: string;
+  booking_id: string;
+  user_id: string;
+  customer_name?: string;
+  rating: number;
+  title?: string | null;
+  comment: string;
+  status: ReviewStatus | string;
+  moderation_notes?: string | null;
+  owner_response?: string | null;
+  owner_responded_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OwnerReviewListResponseDto {
+  restaurant_id: string;
+  total: number;
+  items: OwnerReviewDto[];
+}
+
+export interface RespondToReviewRequestDto {
+  response: string;
+}
+
+export interface ModerateReviewRequestDto {
+  status: ReviewStatus | string;
+  moderation_notes?: string;
+}
+
+export interface BookingPreferencesStaffResponseDto {
+  booking_id: string;
+  restaurant_id: string;
+  user_id: string;
+  dietary_requirements: string[];
+  seating_preference: string;
+  allergies: string[];
+  special_notes?: string | null;
 }

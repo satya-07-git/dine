@@ -231,3 +231,27 @@ VALUES
     ('90000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000001', 'Sunset Aperitivo (Draft)', 'sunset-aperitivo-draft', 'Pre-release rooftop cocktail and antipasti package', 180000, 'INR', 90, 2, 4, false, 1, 'Internal pilot testing only.'),
     ('90000000-0000-0000-0000-000000000004', 'b0000000-0000-0000-0000-000000000002', 'Royal Amber Banquet', 'royal-amber-banquet', 'Signature royal thali feast with royal court ambiance', 750000, 'INR', 120, 4, 16, true, 1, '100% deposit required at hold creation.')
 ON CONFLICT (id) DO NOTHING;
+
+-- 14. Favorites, Customer Preferences & Verified Reviews (EPIC-016)
+INSERT INTO customer_preferences (id, user_id, dietary_requirements, seating_preference, allergies, special_notes, marketing_opt_in)
+VALUES
+    ('88000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', '{"VEGETARIAN"}', 'WINDOW', '{"PEANUTS"}', 'Prefers quiet table for anniversary', true),
+    ('88000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', '{}', 'BOOTH', '{}', null, false)
+ON CONFLICT (user_id) DO NOTHING;
+
+INSERT INTO favorites (id, user_id, restaurant_id)
+VALUES
+    ('77000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001'),
+    ('77000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000002')
+ON CONFLICT (user_id, restaurant_id) DO NOTHING;
+
+-- Completed booking with verified dining evidence for review submission
+INSERT INTO bookings (id, user_id, restaurant_id, party_size, requested_start, dining_period, status, policy_snapshot)
+VALUES 
+    ('10000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000001', 2, '2026-11-05 19:00:00+00', tstzrange('2026-11-05 19:00:00+00', '2026-11-05 20:45:00+00'), 'COMPLETED', '{"policy_mode":"FREE_RESERVATION","deposit_amount_minor":0,"policy_version":1}'::jsonb)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO reviews (id, restaurant_id, booking_id, user_id, rating, title, comment, status, owner_response, owner_responded_at)
+VALUES
+    ('99000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002', 5, 'Exceptional Dining Experience', 'The truffle naan bites and ambiance were extraordinary! Highly recommend.', 'PUBLISHED', 'Thank you Alice for the wonderful feedback! Looking forward to welcoming you back.', '2026-11-06 10:00:00+00')
+ON CONFLICT (booking_id) DO NOTHING;

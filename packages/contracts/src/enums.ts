@@ -145,3 +145,20 @@ export enum RealtimeTopicType {
   RESTAURANT = 'RESTAURANT',
   BOOKING = 'BOOKING',
 }
+
+// EPIC-016 Customer Engagement Enums
+export enum ReviewStatus {
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  PUBLISHED = 'PUBLISHED',
+  HIDDEN = 'HIDDEN',
+  FLAGGED = 'FLAGGED',
+}
+
+export enum SeatingPreference {
+  ANY = 'ANY',
+  INDOOR = 'INDOOR',
+  OUTDOOR = 'OUTDOOR',
+  WINDOW = 'WINDOW',
+  BOOTH = 'BOOTH',
+  QUIET = 'QUIET',
+}

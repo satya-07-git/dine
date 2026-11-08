@@ -32,10 +32,13 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 | **POL-009** | Operations | Walk-in reservations | Walk-in creates immediate `CONFIRMED` booking via same allocation core; respects exclusion locks | **Approved (v1.0)** | Operations Lead | Core Engine Lead | Required before Operations (EPIC-014) |
 | **POL-010** | Operations | Floor layout updates & table retirement | Existing bookings retain historic table snapshot; retired tables hidden from future ranges | **Approved (v1.0)** | Restaurant Ops Lead | Core Engine Lead | Required before Floor Plans (EPIC-006) |
 | **POL-011** | Dining Experiences | Package party capacity, server duration, & deposit calculation | min_party_size <= party_size <= max_party_size; duration and deposit strictly server-derived from package terms | **Approved (v1.0)** | Head of Hospitality | Backend Architect | Required before Packages (EPIC-015) |
+| **POL-012** | Customer Engagement | Verified dining review eligibility & review ownership | Verified dining evidence required: booking status must be COMPLETED; 1 review per booking; ratings 1-5; public projection masks identity | **Approved (v1.0)** | Customer Success Lead | Backend Architect | Required before Reviews (EPIC-016) |
+| **POL-013** | Customer Engagement | Customer preferences, idempotent favorites & privacy boundaries | Dietary & allergy preferences private to user & table service; excluded from public discovery; repeat-safe favorite management | **Approved (v1.0)** | Privacy & Security Lead | Core Engine Lead | Required before Preferences (EPIC-016) |
 | **GATE-001** | Refunds | Cancellation cutoff & refund deduction schedule | **UNRESOLVED**: Tiered refund policy (e.g. 100% refund > 24h, 50% 12-24h, 0% < 12h) vs flat cancellation fee | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Payments Engineer | **BLOCKS Live Payment Release** |
 | **GATE-002** | Finance | Merchant settlement fee deduction on cancellation | **UNRESOLVED**: Who absorbs payment gateway processing fees (2% + GST) on refund (Dine, Restaurant, or Guest) | **UNRESOLVED (GATE)** | Finance Controller | Payment Engine Lead | **BLOCKS Live Payment Release** |
 | **GATE-003** | Dispute | Manual review SLA for late UPI capture disputes | **UNRESOLVED**: Max time window for operational review of double-allocated or orphaned captures (24h target) | **UNRESOLVED (GATE)** | Customer Support Lead | Platform Ops Lead | **BLOCKS Live Payment Release** |
 | **GATE-004** | Packages | Dynamic pricing, multi-table joined parties, & split package billing | **UNRESOLVED**: Advanced event commerce, dynamic pricing, and multi-table package allocation | **UNRESOLVED (GATE)** | Product Owner (Unassigned) | Core Engine Lead | **BLOCKS Live Package Commerce** |
+| **GATE-005** | Customer Engagement | AI-driven review moderation, loyalty points, & social reviewer profiles | **UNRESOLVED**: Algorithmic sentiment moderation, reviewer reputation points, and social network integration | **UNRESOLVED (GATE)** | Growth & Trust PM | Platform Ops Lead | **BLOCKS Automated Moderation & Loyalty** |
 
 ---
 
@@ -43,7 +46,7 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 
 > [!IMPORTANT]
 > In accordance with Acceptance Criterion 3 of EPIC-001 and Blueprint §19.1:
-> **No live financial transactions may be processed until GATE-001, GATE-002, GATE-003, and GATE-004 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
+> **No live financial transactions may be processed until GATE-001, GATE-002, GATE-003, GATE-004, and GATE-005 are formally resolved, approved with versioned policy documents, and coded into the refund/reconciliation engine.**
 
 ### Gate Detail: GATE-001 (Cancellation & Refund Rules)
 - **Current Status**: UNRESOLVED.
@@ -68,6 +71,11 @@ As mandated by **EPIC-001** and Blueprint §1.3, §9.4, and §19.1, no commercia
 - **Current Status**: UNRESOLVED.
 - **Problem**: Does package booking permit dynamic surcharge pricing, multi-table joined event seating, or split bill deposits?
 - **Resolution Requirement**: Multi-table inventory and complex event commerce are deferred beyond the one-table MVP architecture (ADR-003). Any attempt to pass client-defined prices or multi-table package requests must remain blocked at the API gateway until formally architected.
+
+### Gate Detail: GATE-005 (AI Review Moderation & Loyalty Automation Gate)
+- **Current Status**: UNRESOLVED.
+- **Problem**: Does the engagement engine utilize automated machine-learning review scoring or award customer loyalty points for review submissions?
+- **Resolution Requirement**: Unspecified recommendation AI, automated review suppression without staff review, and review incentive wallets are out of scope (EPIC-016). Reviews follow deterministic server eligibility verification (booking MUST be COMPLETED) and staff-audited moderation until a formal trust and safety governance framework is approved.
 
 ---
 
