@@ -7,10 +7,12 @@
     "build": "tsc -p packages/contracts/tsconfig.json && tsc -p apps/api/tsconfig.json",
     "start": "node apps/api/dist/main.js",
     "start:dev": "ts-node apps/api/src/main.ts",
-    "test": "node --test tests/unit/*.test.js || python3 -m unittest discover -s tests -p 'test_*.py' -v",
+    "test": "npm run build && npm run test:node && npm run test:python",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",
-    "ci": "./scripts/ci.sh"
+    "ci": "./scripts/ci.sh",
+    "test:node": "node scripts/run-node-tests.js",
+    "test:python": "python3 -m unittest discover -s tests -p 'test_*.py' -v"
   },
   "workspaces": [
     "apps/*",
@@ -36,6 +38,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.17.9",
     "@types/pg": "^8.11.10",
+    "socket.io-client": "^4.8.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }

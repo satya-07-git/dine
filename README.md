@@ -1,4 +1,4 @@
-> **Delivery dashboard:** [Open](project-delivery-kit/tasks/dashboard.html) · [V2 URL — same data](project-delivery-kit/tasks/dashboard-v2.html) · [Delivery guide](project-delivery-kit/tasks/README.md). Original EPIC-001–020 remain Completed; new v2 changes are additive EPIC-021–024. Both URLs share the same active status source.
+> **Delivery dashboard:** [Open](project-delivery-kit/tasks/dashboard.html) · [V2 URL — same data](project-delivery-kit/tasks/dashboard-v2.html) · [Audit remediation](project-delivery-kit/tasks/REFERENCE-remediation.md). EPIC-001–024 completed records are preserved; EPIC-025–036 track audit fixes and integration evidence. Production readiness is not established by simulated/unit results.
 
 <p align="center">
   <img src="assets/dine-logo.jpeg" alt="Dine Enterprise Logo" width="360" style="border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.12);" />

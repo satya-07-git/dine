@@ -20,34 +20,32 @@ EXCEPTION WHEN duplicate_object THEN
 END
 $$;
 
-DO $$
+DO $do$
 BEGIN
     ALTER TABLE restaurants ADD CONSTRAINT chk_restaurants_price_tier 
         CHECK (price_tier IN ('$', '$$', '$$$', '$$$$'));
 EXCEPTION WHEN duplicate_object THEN
     NULL;
 END
-$$;
+$do$;
 
 -- Synchronize PostGIS geography location if PostGIS extension is available
-DO $$
+DO $do$
 BEGIN
-    UPDATE restaurants
-    SET location = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography
-    WHERE longitude IS NOT NULL AND latitude IS NOT NULL AND location IS NULL;
+    EXECUTE 'UPDATE restaurants SET location = ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography WHERE longitude IS NOT NULL AND latitude IS NOT NULL AND location IS NULL';
 EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Skipping location geography point synchronization (PostGIS not enabled)';
 END
-$$;
+$do$;
 
 -- Spatial and Discovery Indexes
-DO $$
+DO $do$
 BEGIN
-    CREATE INDEX IF NOT EXISTS idx_restaurants_location ON restaurants USING gist(location);
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_restaurants_location ON restaurants USING gist(location)';
 EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'Skipping GiST index on location (PostGIS not enabled)';
 END
-$$;
+$do$;
 
 CREATE INDEX IF NOT EXISTS idx_restaurants_discovery ON restaurants(status, is_published, price_tier);
 CREATE INDEX IF NOT EXISTS idx_restaurants_lat_lng ON restaurants(latitude, longitude);

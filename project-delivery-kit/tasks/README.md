@@ -1,25 +1,16 @@
-# Dine backend delivery — stable epic identities
+# Dine backend delivery guide
 
-[Open dashboard](dashboard.html) · [V2 dashboard alias](dashboard-v2.html) · [Source register](SOURCE-REGISTER.md)
+[Dashboard](dashboard.html) · [Same dataset at v2 URL](dashboard-v2.html) · [Audit remediation map](REFERENCE-remediation.md) · [Test evidence](TEST-EVIDENCE.md)
 
-Both dashboard filenames are generated from the **same active Markdown records**. Current status: **20 completed original epics, 4 pending v2 upgrades**. The completed baseline is no longer hidden in an archive or replaced with a different set of similarly numbered backlog items.
+EPIC-001–024 retain their completed status, identity, assignee and completion report. EPIC-025–036 are additive audit remediation. Historical completion reflects the delivered scope; production integration readiness is governed by the new executable acceptance criteria.
 
-## Status and identity rule
+Both dashboards are generated from the same Markdown source, with no browser-local status override. Rebuild with `python3 project-delivery-kit/tasks/build_dashboard.py`. Use Audit remediation in the sidebar for the gap matrix and failure causes; use phase/status filters for execution work.
 
-EPIC-001–020 preserve their original names, completed statuses, checklists, assignees and completion reports. A new PRD does not reset delivered work. Finalized-v2 changes have new, additive IDs:
-
-- EPIC-021: finalized contracts, inventory claims, 120-second expiry, lifecycle/payment/API compatibility and v2 acceptance deltas.
-- EPIC-022: phone OTP, revocable sessions and finalized manager-permission upgrades.
-- EPIC-023: deterministic automatic recommendation through shared atomic inventory.
-- EPIC-024: Socket.IO, BullMQ/Redis and database-backed event recovery upgrade.
-
-Completion of the original work does not claim these additional provider/schema/contract changes were already implemented. Their four checklists remain pending. Existing backend code and migrations were not changed by this planning/status fix.
-
-## Active epics
+## Active epic index
 
 | Epic | Outcome | Status | Dependencies |
 | --- | --- | --- | --- |
-| [EPIC-001](EPIC-001-product-policies-and-architecture-contracts.md) | Product policies and architecture contracts | completed |  |
+| [EPIC-001](EPIC-001-product-policies-and-architecture-contracts.md) | Product policies and architecture contracts | completed | None |
 | [EPIC-002](EPIC-002-repository-database-and-delivery-foundation.md) | Repository, database and delivery foundation | completed | EPIC-001 |
 | [EPIC-003](EPIC-003-identity-memberships-and-tenant-authorization.md) | Identity, memberships and tenant authorization | completed | EPIC-002 |
 | [EPIC-004](EPIC-004-restaurant-profiles-hours-and-policies.md) | Restaurant profiles, hours and policies | completed | EPIC-003 |
@@ -39,42 +30,25 @@ Completion of the original work does not claim these additional provider/schema/
 | [EPIC-018](EPIC-018-background-jobs-observability-and-recovery.md) | Background jobs, observability and recovery | completed | EPIC-002, EPIC-017 |
 | [EPIC-019](EPIC-019-backend-verification-staging-and-release-gates.md) | Backend verification, staging and release gates | completed | EPIC-005, EPIC-008, EPIC-011, EPIC-012, EPIC-013, EPIC-014, EPIC-017, EPIC-018 |
 | [EPIC-020](EPIC-020-future-extensions-and-unresolved-scope-definition.md) | Future extensions and unresolved scope definition | completed | EPIC-001 |
-| [EPIC-021](EPIC-021-finalized-v2-contracts-claims-and-compatibility.md) | Finalized v2 contracts, claims and compatibility | backlog | EPIC-001, EPIC-002, EPIC-004, EPIC-007, EPIC-008, EPIC-009, EPIC-010, EPIC-011, EPIC-017 |
-| [EPIC-022](EPIC-022-phone-otp-sessions-and-manager-permission-upgrade.md) | Phone OTP, sessions and manager permission upgrade | backlog | EPIC-002, EPIC-003, EPIC-017 |
-| [EPIC-023](EPIC-023-automatic-table-recommendation-upgrade.md) | Automatic table recommendation upgrade | backlog | EPIC-007, EPIC-008, EPIC-021, EPIC-022 |
-| [EPIC-024](EPIC-024-socketio-bullmq-and-database-event-recovery-upgrade.md) | Socket.IO, BullMQ and database event recovery upgrade | backlog | EPIC-013, EPIC-018, EPIC-021, EPIC-022 |
+| [EPIC-021](EPIC-021-finalized-v2-contracts-claims-and-compatibility.md) | Finalized v2 contracts, claims and compatibility | completed | EPIC-001, EPIC-002, EPIC-004, EPIC-007, EPIC-008, EPIC-009, EPIC-010, EPIC-011, EPIC-017 |
+| [EPIC-022](EPIC-022-phone-otp-sessions-and-manager-permission-upgrade.md) | Phone OTP, sessions and manager permission upgrade | completed | EPIC-002, EPIC-003, EPIC-017 |
+| [EPIC-023](EPIC-023-automatic-table-recommendation-upgrade.md) | Automatic table recommendation upgrade | completed | EPIC-007, EPIC-008, EPIC-021, EPIC-022 |
+| [EPIC-024](EPIC-024-socketio-bullmq-and-database-event-recovery-upgrade.md) | Socket.IO, BullMQ and database event recovery upgrade | completed | EPIC-013, EPIC-018, EPIC-021, EPIC-022 |
+| [EPIC-025](EPIC-025-reliable-test-execution.md) | Reliable test execution and fail-closed CI | completed | EPIC-019 |
+| [EPIC-026](EPIC-026-runtime-boot-and-configuration.md) | Runtime boot dependencies and production configuration | in_progress | EPIC-025 |
+| [EPIC-027](EPIC-027-canonical-http-contracts.md) | Canonical HTTP contracts and request validation | backlog | EPIC-026 |
+| [EPIC-028](EPIC-028-persistent-inventory-and-concurrency.md) | One persistent inventory engine and real PostgreSQL concurrency | backlog | EPIC-026, EPIC-027 |
+| [EPIC-029](EPIC-029-razorpay-test-mode-integration.md) | Actual Razorpay Test Mode orders and checkout adapter | backlog | EPIC-027, EPIC-028, EPIC-032 |
+| [EPIC-030](EPIC-030-webhook-and-late-payment-correctness.md) | Durable webhook inbox and safe late-payment confirmation | backlog | EPIC-028, EPIC-029 |
+| [EPIC-031](EPIC-031-refund-ledger-and-reconciliation.md) | Refund ledger, reconciliation and financial truth | backlog | EPIC-029, EPIC-030 |
+| [EPIC-032](EPIC-032-financial-tenant-authorization.md) | Tenant and support authorization across financial operations | backlog | EPIC-027 |
+| [EPIC-033](EPIC-033-durable-otp-and-sessions.md) | Durable phone OTP delivery and revocable sessions | backlog | EPIC-026, EPIC-032 |
+| [EPIC-034](EPIC-034-real-socketio-transport.md) | Real Socket.IO transport and authorized recovery | backlog | EPIC-028, EPIC-032, EPIC-033 |
+| [EPIC-035](EPIC-035-real-bullmq-and-outbox-recovery.md) | Real BullMQ workers, Redis and durable outbox recovery | backlog | EPIC-026, EPIC-028 |
+| [EPIC-036](EPIC-036-evidence-backed-release-readiness.md) | Evidence-backed release gates, performance and pilot readiness | backlog | EPIC-025, EPIC-026, EPIC-027, EPIC-028, EPIC-029, EPIC-030, EPIC-031, EPIC-032, EPIC-033, EPIC-034, EPIC-035 |
 
-## Finalized target and source coverage
+## Verification scope
 
-The technical reference views retain the latest supplied PRD/SQL/Socket.IO design, including manual + automatic selection, FREE/DEPOSIT policies, PostgreSQL claim authority, authorized realtime recovery, API compatibility, late-payment reconciliation and operational recording of off-platform reservations.
+`npm test` runs the build, full Node suite and full Python suite in sequence. `npm run ci` also checks dashboard generation, JavaScript syntax, migration/seed file structure, OpenAPI export and documentation links. None of these file/unit gates alone proves real PostgreSQL concurrency, provider payments, SMS delivery, socket networking, Redis workers or backup restoration. Those checks remain separately tracked in EPIC-026–036.
 
-| Source area | Delivered foundation | New finalized-v2 delta |
-| --- | --- | --- |
-| Architecture and contracts | 001–002 | 021 |
-| Phone auth/session, membership and manager permissions | 003 | 022 |
-| Restaurant policy, discovery and floor geometry | 004–006 | 021 where contracts differ |
-| Availability, atomic holds and claims | 007–008 | 021 |
-| Lifecycle and free booking | 009 | 021 |
-| Payment verification/reconciliation/refunds | 010–011 | 021 |
-| Deterministic automatic recommendation | Shared 007–008 engine | 023 |
-| Outbox and private status delivery | 013 | 024 |
-| Staff check-in/blocks/walk-ins | 014 | 021/022 where finalized contracts differ |
-| Audit, reliability and release verification | 017–019 | 021/024 changed-path evidence |
-| Optional waitlist and prior broader modules | 012, 015–016; already delivered | No status reset or new mandatory scope |
-| Deferred feature definition | 020; definition already completed | New implementation requires a separate approved epic |
-
-Four supplied diagrams remain embedded with fit/pan/zoom, along with architecture/database/API/workflow references. The API catalog covers the 22 finalized supplement routes plus PRD logout. The base source header says v1.0; latest user finalization is v2.0. SOURCE-REGISTER.md preserves provenance and precedence.
-
-## Build once, update both URLs
-
-```bash
-python3 project-delivery-kit/tasks/build_dashboard.py
-```
-
-The builder reads only active EPIC-*.md files for status and creates byte-identical dashboard.html and dashboard-v2.html. It does not substitute archived data, reset metadata, or infer completion from new requirement numbering. Both work offline, with no package install, API key or backend call. Refresh the open browser page after a rebuild.
-
-Edit an epic's frontmatter/checklists/completion report together when work actually changes. Do not renumber existing IDs to introduce a new work item. Original historical snapshots and the discarded v2 renumbering draft remain under ../archive/ for traceability only; neither is a separate live status source.
-
-## Verification
-
-The regression checks cover original identity/status preservation, active-source links, equal data across both output filenames and rebuild stability. These are dashboard checks; database concurrency/payment/production claims require their own runtime evidence.
+Product frontend remains deferred. Actual Razorpay Test Mode integration comes after persistent inventory and financial authorization; live collection is a separate approved release step. See [source register](SOURCE-REGISTER.md) for supplied PRD provenance.

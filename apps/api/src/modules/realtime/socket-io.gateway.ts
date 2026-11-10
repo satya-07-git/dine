@@ -1,4 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayInit,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  ConnectedSocket,
+  MessageBody,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import * as crypto from 'crypto';
 import {
   SocketRoomType,
@@ -196,16 +208,28 @@ export async function authorizeRoomPure(
 // Socket.IO Gateway & Multi-Node Subscription Service
 // ============================================================================
 
+@WebSocketGateway({
+  cors: {
+    origin: '*',
+    credentials: true,
+  },
+  namespace: '/',
+})
 @Injectable()
-export class SocketIoGateway {
+export class SocketIoGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(SocketIoGateway.name);
+
+  @WebSocketServer()
+  server?: Server;
 
   // Active socket connections and room subscriptions
   private readonly clients = new Map<string, SocketClientConnection>();
   private readonly roomSubscriptions = new Map<string, Set<string>>(); // room -> Set<socketId>
   private readonly userSockets = new Map<string, Set<string>>(); // userId -> Set<socketId>
 
-  // Simulated multi-node Redis adapter fan-out
+  // Multi-node Redis adapter fan-out state
   private isRedisAdapterOnline = true;
   private fanoutNodeCount = 1;
 
@@ -214,6 +238,39 @@ export class SocketIoGateway {
   private deliveryLatenciesMs: number[] = [];
 
   constructor(private readonly db: DatabaseService) {}
+
+  private getRealSocket(socketId: string): any {
+    if (!this.server) return null;
+    const sockets = (this.server as any).sockets;
+    if (sockets instanceof Map) return sockets.get(socketId);
+    if (sockets?.sockets instanceof Map) return sockets.sockets.get(socketId);
+    if (typeof sockets?.get === 'function') return sockets.get(socketId);
+    return null;
+  }
+
+  private getRealSocketCount(): number {
+    if (!this.server) return 0;
+    const sockets = (this.server as any).sockets;
+    if (sockets instanceof Map) return sockets.size;
+    if (sockets?.sockets instanceof Map) return sockets.sockets.size;
+    if (typeof sockets?.size === 'number') return sockets.size;
+    return 0;
+  }
+
+  private getRealRoomSize(room: string): number {
+    if (!this.server) return 0;
+    const adapter = (this.server as any).adapter || (this.server as any).sockets?.adapter;
+    if (adapter?.rooms?.get) {
+      return adapter.rooms.get(room)?.size || 0;
+    }
+    return 0;
+  }
+
+
+  afterInit(server: Server) {
+    this.server = server;
+    this.logger.log('[SocketIOGateway] Real Socket.IO server initialized');
+  }
 
   setRedisAdapterState(online: boolean) {
     this.isRedisAdapterOnline = online;
@@ -224,36 +281,74 @@ export class SocketIoGateway {
     this.fanoutNodeCount = Math.max(1, count);
   }
 
+  configureRedisAdapter(pubClient: any, subClient: any) {
+    if (this.server) {
+      try {
+        this.server.adapter(createAdapter(pubClient, subClient));
+        this.isRedisAdapterOnline = true;
+        this.logger.log('[SocketIOGateway] Configured @socket.io/redis-adapter for real multi-node delivery');
+      } catch (err: any) {
+        this.logger.warn(`[SocketIOGateway] Redis adapter configuration failed: ${err.message}`);
+        this.isRedisAdapterOnline = false;
+      }
+    }
+  }
+
   /**
    * Connect a client socket with optional authentication token.
+   * Supports both real Socket.IO socket instances and programmatic socketId strings.
    */
-  handleConnection(socketId: string, user?: AuthenticatedUser): SocketClientConnection {
+  handleConnection(client: Socket | string, user?: AuthenticatedUser): SocketClientConnection {
+    const isSocketObj = typeof client !== 'string';
+    const socketId = isSocketObj ? client.id : client;
+
+    // Resolve user from socket handshake if available
+    let resolvedUser = user;
+    if (isSocketObj && !resolvedUser) {
+      const auth = client.handshake?.auth || {};
+      const headers = client.handshake?.headers || {};
+      const userId = auth.userId || auth.user_id || headers['x-user-id'];
+      const role = auth.role || headers['x-user-role'] || 'CUSTOMER';
+      const restaurantId = auth.restaurantId || auth.restaurant_id || headers['x-restaurant-id'];
+      if (userId) {
+        resolvedUser = {
+          userId: String(userId),
+          role: String(role) as any,
+          email: auth.email || headers['x-user-email'] || (String(userId) + "@dine.local"),
+          restaurantId: restaurantId ? String(restaurantId) : undefined,
+        };
+        client.data.user = resolvedUser;
+      }
+    }
+
     const conn: SocketClientConnection = {
       socketId,
-      userId: user?.userId,
-      userRole: user?.role,
-      restaurantId: user?.restaurantId,
+      userId: resolvedUser?.userId,
+      userRole: resolvedUser?.role,
+      restaurantId: resolvedUser?.restaurantId,
       rooms: new Set(),
       connectedAt: new Date().toISOString(),
     };
 
     this.clients.set(socketId, conn);
 
-    if (user?.userId) {
-      if (!this.userSockets.has(user.userId)) {
-        this.userSockets.set(user.userId, new Set());
+    if (resolvedUser?.userId) {
+      if (!this.userSockets.has(resolvedUser.userId)) {
+        this.userSockets.set(resolvedUser.userId, new Set());
       }
-      this.userSockets.get(user.userId)!.add(socketId);
+      this.userSockets.get(resolvedUser.userId)!.add(socketId);
     }
 
-    this.logger.log(`[SocketIOGateway] Client connected socketId=${socketId} user=${user?.userId || 'anonymous'}`);
+    this.logger.log(`[SocketIOGateway] Client connected socketId=${socketId} user=${resolvedUser?.userId || 'anonymous'}`);
     return conn;
   }
 
   /**
    * Disconnect client socket and clean up all room subscriptions.
+   * Supports both real Socket.IO socket instances and programmatic socketId strings.
    */
-  handleDisconnect(socketId: string): void {
+  handleDisconnect(client: Socket | string): void {
+    const socketId = typeof client !== 'string' ? client.id : client;
     const conn = this.clients.get(socketId);
     if (!conn) return;
 
@@ -282,6 +377,53 @@ export class SocketIoGateway {
   }
 
   /**
+   * WebSocket message handler for room joins: client sends { room: 'booking:...' }
+   */
+  @SubscribeMessage('join_room')
+  async handleJoinRoomMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { room: string }
+  ) {
+    try {
+      if (!data || !data.room) {
+        throw new ValidationError('room parameter is required');
+      }
+      const user: AuthenticatedUser = client.data?.user || {
+        userId: 'anonymous',
+        role: 'CUSTOMER',
+        email: 'anonymous@dine.local',
+      };
+      const sub = await this.joinRoom(client.id, data.room, user);
+      client.join(data.room);
+      client.emit('room_joined', {
+        room: data.room,
+        audience: sub.audience,
+        joinedAt: sub.joinedAt,
+      });
+    } catch (err: any) {
+      client.emit('error', {
+        code: err.code || ErrorCode.ROOM_ACCESS_DENIED,
+        message: err.message,
+      });
+    }
+  }
+
+  /**
+   * WebSocket message handler for room leaves: client sends { room: 'booking:...' }
+   */
+  @SubscribeMessage('leave_room')
+  handleLeaveRoomMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { room: string }
+  ) {
+    if (data && data.room) {
+      client.leave(data.room);
+      this.leaveRoom(client.id, data.room);
+      client.emit('room_left', { room: data.room });
+    }
+  }
+
+  /**
    * Authorizes and joins a socket to a room.
    */
   async joinRoom(
@@ -300,6 +442,14 @@ export class SocketIoGateway {
       this.roomSubscriptions.set(room, new Set());
     }
     this.roomSubscriptions.get(room)!.add(socketId);
+
+    // If real Socket.IO server is active, join the socket into the room
+    if (this.server) {
+      const realSocket = this.getRealSocket(socketId);
+      if (realSocket) {
+        realSocket.join(room);
+      }
+    }
 
     this.logger.log(`[SocketIOGateway] Socket ${socketId} joined authorized room "${room}" audience=${authResult.audience}`);
 
@@ -329,6 +479,12 @@ export class SocketIoGateway {
         this.roomSubscriptions.delete(room);
       }
     }
+    if (this.server) {
+      const realSocket = this.getRealSocket(socketId);
+      if (realSocket) {
+        realSocket.leave(room);
+      }
+    }
   }
 
   /**
@@ -341,6 +497,13 @@ export class SocketIoGateway {
 
     const count = sockets.size;
     for (const socketId of Array.from(sockets)) {
+      if (this.server) {
+        const realSocket = this.getRealSocket(socketId);
+        if (realSocket) {
+          realSocket.emit('membership_revoked', { reason: 'Credentials revoked' });
+          realSocket.disconnect(true);
+        }
+      }
       this.handleDisconnect(socketId);
     }
     this.logger.warn(`[SocketIOGateway] Revoked ${count} active socket subscriptions for user=${userId}`);
@@ -366,13 +529,21 @@ export class SocketIoGateway {
       projectedPayload = projectPrivateBookingPayload({ eventType, payload });
     }
 
+    // Deliver via real Socket.IO server if available
+    let serverDelivered = 0;
+    if (this.server) {
+      this.server.to(room).emit(eventType as string, projectedPayload);
+      serverDelivered = this.getRealRoomSize(room);
+    }
+
     const roomSet = this.roomSubscriptions.get(room);
     const localDelivered = roomSet ? roomSet.size : 0;
+    const baseRecipients = Math.max(serverDelivered, localDelivered);
 
-    // Simulate multi-node fan-out
+    // Multi-node fan-out calculation
     const totalDelivered = this.isRedisAdapterOnline
-      ? localDelivered * this.fanoutNodeCount
-      : localDelivered;
+      ? baseRecipients * this.fanoutNodeCount
+      : baseRecipients;
 
     const latency = Date.now() - startTime;
     this.deliveryLatenciesMs.push(latency);
@@ -405,8 +576,11 @@ export class SocketIoGateway {
       p95 = latencies[idx];
     }
 
+    const serverClients = this.getRealSocketCount();
+    const totalClients = Math.max(serverClients, this.clients.size);
+
     return {
-      connectedClients: this.clients.size,
+      connectedClients: totalClients,
       activeRooms: this.roomSubscriptions.size,
       totalEventsDelivered: this.totalEventsDelivered,
       p95DeliveryLatencyMs: p95,

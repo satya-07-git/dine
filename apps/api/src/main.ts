@@ -34,9 +34,14 @@ export async function bootstrap() {
     exclude: ['health/live', 'health/ready', 'health'],
   });
 
-  // Enable CORS
+  // Enable CORS with restricted configured origins
+  const corsOriginsConfig = configService.get('CORS_ORIGINS');
+  const allowedOrigins = corsOriginsConfig
+    ? corsOriginsConfig.split(',').map((o) => o.trim())
+    : ['http://localhost:3000', 'http://localhost:5173'];
+
   app.enableCors({
-    origin: '*',
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -64,6 +69,37 @@ export async function bootstrap() {
   SwaggerModule.setup('docs', app, document);
 
   app.enableShutdownHooks();
+
+  const shutdownTimeoutMs = configService.get('SHUTDOWN_TIMEOUT_MS');
+  const handleShutdownSignal = async (signal: string) => {
+    logger.log(
+      `Received ${signal}. Draining connections and initiating graceful shutdown (budget: ${shutdownTimeoutMs}ms)...`,
+      'Shutdown'
+    );
+    const timer = setTimeout(() => {
+      logger.error(
+        `Graceful shutdown timed out after ${shutdownTimeoutMs}ms. Forcing process exit.`,
+        undefined,
+        'Shutdown'
+      );
+      process.exit(1);
+    }, shutdownTimeoutMs);
+    timer.unref();
+
+    try {
+      await app.close();
+      clearTimeout(timer);
+      logger.log('Graceful shutdown completed successfully.', 'Shutdown');
+      process.exit(0);
+    } catch (err: any) {
+      clearTimeout(timer);
+      logger.error(`Error during graceful shutdown: ${err.message}`, err.stack, 'Shutdown');
+      process.exit(1);
+    }
+  };
+
+  process.on('SIGTERM', () => handleShutdownSignal('SIGTERM'));
+  process.on('SIGINT', () => handleShutdownSignal('SIGINT'));
 
   await app.listen(port);
   logger.log(`Dine API modular monolith running on port ${port} with prefix ${apiPrefix}`, 'Bootstrap');

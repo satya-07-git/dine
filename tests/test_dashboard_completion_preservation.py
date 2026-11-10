@@ -42,8 +42,9 @@ class CompletionPreservation(unittest.TestCase):
         self.assertEqual(main.read_bytes(), v2.read_bytes())
         rows = embedded(v2)
         completed = {x['id'] for x in rows if x['status'] == 'completed'}
-        self.assertEqual(completed, {f'EPIC-{n:03}' for n in range(1, 25)})
-        self.assertEqual(len(rows), 24)
+        self.assertTrue({f'EPIC-{n:03}' for n in range(1, 25)} <= completed)
+        self.assertEqual(len(rows), len(list(TASKS.glob('EPIC-*.md'))))
+        self.assertGreater(len(rows), 24)
         for row in rows:
             self.assertEqual(row['status'], metadata(TASKS / row['path'])['status'])
             self.assertTrue((TASKS / row['path']).is_file())

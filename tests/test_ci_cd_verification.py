@@ -460,7 +460,7 @@ class TestEpic2FoundationDeliverables(unittest.TestCase):
 
         # 2. Node unit tests
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/foundation.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/foundation.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -480,13 +480,13 @@ class TestEpic3IdentityDeliverables(unittest.TestCase):
     def test_identity_node_unit_suite(self):
         """Execute Node.js identity unit tests verifying guards and cryptographic JWT verification."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/identity.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/identity.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
         )
         self.assertEqual(test_result.returncode, 0, f"Identity unit tests failed: {test_result.stderr}")
-        self.assertIn("pass 15", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 15$")
 
     def test_migration_003_rls_and_auth_uid(self):
         """Verify authoritative SQL migration 3 defines auth_uid, tenant indexes, and RLS policies."""
@@ -627,7 +627,7 @@ class TestEpic4RestaurantProfilesAndPolicies(unittest.TestCase):
     def test_restaurant_policy_node_unit_suite(self):
         """Execute Node.js restaurant policy unit tests verifying business rules and guards."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/restaurant-policy.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/restaurant-policy.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -772,7 +772,7 @@ class TestEpic5DiscoveryMenusAndPublicMedia(unittest.TestCase):
     def test_discovery_and_menu_node_unit_suite(self):
         """Execute Node.js discovery and menu unit tests verifying business rules and guards."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/discovery-and-menu.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/discovery-and-menu.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -928,7 +928,7 @@ class TestEpic6VersionedFloorPlansAndTables(unittest.TestCase):
     def test_floor_plans_node_unit_suite(self):
         """Execute Node.js floor plans unit tests verifying geometry guards and versioning."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/floor-plans.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/floor-plans.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -938,7 +938,7 @@ class TestEpic6VersionedFloorPlansAndTables(unittest.TestCase):
             0,
             "Floor plans unit tests failed: " + str(test_result.stdout)
         )
-        self.assertIn("pass 17", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 17$")
 
     def test_migration_006_floor_plans_and_tables(self):
         """Verify authoritative SQL migration 6 defines version tracking, checks, and RLS."""
@@ -1106,7 +1106,7 @@ class TestEpic7TimeRangeAvailabilityAndPolicyEngine(unittest.TestCase):
     def test_availability_node_unit_suite(self):
         """Execute Node.js availability unit tests verifying interval calculator and service integration."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/availability.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/availability.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -1116,7 +1116,7 @@ class TestEpic7TimeRangeAvailabilityAndPolicyEngine(unittest.TestCase):
             0,
             "Availability unit tests failed: " + str(test_result.stdout)
         )
-        self.assertIn("pass 26", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 26$")
 
     def test_migration_007_time_range_availability_and_blocks(self):
         """Verify authoritative SQL migration 7 defines GiST indexes, range check, and RLS."""
@@ -1305,7 +1305,7 @@ class TestEpic8AtomicHoldsAndIdempotency(unittest.TestCase):
     def test_atomic_holds_node_unit_suite(self):
         """Execute Node.js atomic holds unit tests verifying concurrency and idempotency."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/atomic-holds.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/atomic-holds.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -1315,7 +1315,7 @@ class TestEpic8AtomicHoldsAndIdempotency(unittest.TestCase):
             0,
             "Atomic holds unit tests failed: " + str(test_result.stdout) + "\n" + str(test_result.stderr)
         )
-        self.assertIn("pass 19", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 19$")
 
     def test_migration_008_atomic_holds_and_idempotency(self):
         """Verify authoritative SQL migration 8 defines range checks, indexes, and RLS."""
@@ -1492,7 +1492,7 @@ class TestEpic9ReservationLifecycleAndServiceStatus(unittest.TestCase):
     def test_reservation_lifecycle_node_unit_suite(self):
         """Execute Node.js reservation lifecycle unit tests."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/reservation-lifecycle.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/reservation-lifecycle.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -1502,7 +1502,7 @@ class TestEpic9ReservationLifecycleAndServiceStatus(unittest.TestCase):
             0,
             "Reservation lifecycle unit tests failed: " + str(test_result.stdout) + "\n" + str(test_result.stderr)
         )
-        self.assertIn("pass 21", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 21$")
 
     def test_migration_009_reservation_lifecycle(self):
         """Verify authoritative SQL migration 9 defines versioning, timestamps, sequenced events, and RLS."""
@@ -1747,7 +1747,7 @@ class TestEpic10PaymentOrdersAndWebhooks(unittest.TestCase):
     def test_payment_orders_and_webhooks_node_unit_suite(self):
         """Execute Node.js payment orders and webhooks unit tests."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/payment-orders-and-webhooks.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/payment-orders-and-webhooks.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -1757,7 +1757,7 @@ class TestEpic10PaymentOrdersAndWebhooks(unittest.TestCase):
             0,
             "Payment orders unit tests failed: " + str(test_result.stdout) + "\n" + str(test_result.stderr)
         )
-        self.assertIn("pass 18", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 18$")
 
     def test_migration_010_payment_orders_and_webhooks(self):
         """Verify authoritative SQL migration 10 defines payment attempts, events, and RLS."""
@@ -1975,7 +1975,7 @@ class TestEpic11PaymentReviewReconciliationAndRefunds(unittest.TestCase):
     def test_payment_reconciliation_node_unit_suite(self):
         """Execute Node.js payment reconciliation unit tests verifying bounded review, late capture, and refunds."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/payment-reconciliation.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/payment-reconciliation.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -1985,7 +1985,7 @@ class TestEpic11PaymentReviewReconciliationAndRefunds(unittest.TestCase):
             0,
             f"Payment reconciliation unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 17", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 17$")
 
     def test_migration_011_payment_review_reconciliation_and_refunds(self):
         """Verify authoritative SQL migration 11 defines reconciliation columns, refunds, incidents, and RLS."""
@@ -2177,7 +2177,7 @@ class TestEpic12EligibleWaitlistAndPriorityOffers(unittest.TestCase):
     def test_waitlist_node_unit_suite(self):
         """Execute Node.js waitlist unit tests verifying queue ordering, exclusive offers, and zero auto-charge."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/waitlist.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/waitlist.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -2187,7 +2187,7 @@ class TestEpic12EligibleWaitlistAndPriorityOffers(unittest.TestCase):
             0,
             f"Waitlist unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 29", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 29$")
 
     def test_migration_012_waitlist_schema(self):
         """Verify authoritative SQL migration 12 defines waitlist columns, indexes, skip logs, and RLS."""
@@ -2439,7 +2439,7 @@ class TestEpic13TransactionalEventsAndRealtime(unittest.TestCase):
     def test_notifications_and_realtime_node_unit_suite(self):
         """Execute Node.js notifications and realtime unit tests verifying worker, dedup, and auth."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/notifications-and-realtime.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/notifications-and-realtime.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -2449,7 +2449,7 @@ class TestEpic13TransactionalEventsAndRealtime(unittest.TestCase):
             0,
             f"Notifications unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 38", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 38$")
 
     def test_migration_013_transactional_events_and_notifications(self):
         """Verify authoritative SQL migration 13 defines outbox claim, dedup, topic auth, and RLS."""
@@ -2684,7 +2684,7 @@ class TestEpic14OwnerOperationsCheckInAndWalkIns(unittest.TestCase):
     def test_owner_operations_node_unit_suite(self):
         """Execute Node.js owner operations unit tests verifying QR tokens, walk-ins, and floor plan conflict protection."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/owner-operations.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/owner-operations.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -2694,7 +2694,7 @@ class TestEpic14OwnerOperationsCheckInAndWalkIns(unittest.TestCase):
             0,
             f"Owner operations unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 21", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 21$")
 
     def test_migration_014_owner_operations_and_walkins(self):
         """Verify authoritative SQL migration 14 defines columns, table blocks, check-in tokens, and RLS."""
@@ -2882,7 +2882,7 @@ class TestEpic15DiningExperiencesAndPackages(unittest.TestCase):
     def test_packages_node_unit_suite(self):
         """Execute Node.js packages unit tests verifying public catalog, cross-tenant denial, and server calculation."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/packages.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/packages.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -2892,7 +2892,7 @@ class TestEpic15DiningExperiencesAndPackages(unittest.TestCase):
             0,
             f"Packages unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 23", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 23$")
 
     def test_migration_015_dining_experiences_and_packages(self):
         """Verify authoritative SQL migration 15 defines packages table, booking columns, indices, and RLS."""
@@ -3060,7 +3060,7 @@ class TestEpic16FavoritesReviewsAndCustomerPreferences(unittest.TestCase):
     def test_engagement_node_unit_suite(self):
         """Execute Node.js customer engagement unit tests verifying favorites, reviews, and preferences."""
         test_result = subprocess.run(
-            ["node", "--test", "tests/unit/engagement.test.js"],
+            ["node", "scripts/run-node-tests.js", "tests/unit/engagement.test.js"],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True
@@ -3070,7 +3070,7 @@ class TestEpic16FavoritesReviewsAndCustomerPreferences(unittest.TestCase):
             0,
             f"Engagement unit tests failed: {test_result.stdout}\n{test_result.stderr}"
         )
-        self.assertIn("pass 24", test_result.stdout)
+        self.assertRegex(test_result.stdout, r"(?m)^# pass 24$")
 
     def test_migration_016_favorites_reviews_and_preferences(self):
         """Verify authoritative SQL migration 16 defines tables, uniqueness constraints, and RLS."""
@@ -3303,13 +3303,13 @@ class TestEpic17AuditSupportAndPrivacyControls(unittest.TestCase):
         self.assertTrue(test_file.exists(), "audit-support.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, "Node.js audit-support tests failed: " + res.stderr + " " + res.stdout)
-        self.assertIn("pass 12", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 12$")
 
     def test_python_actor_and_request_correlation_ac1(self):
         """Verify Acceptance Criterion 1: Critical transitions have actor and request correlation in audit envelope."""
@@ -3533,13 +3533,13 @@ class TestEpic18BackgroundJobsObservabilityAndRecovery(unittest.TestCase):
         self.assertTrue(test_file.exists(), "observability-and-recovery.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js observability tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 12", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 12$")
 
     def test_python_delayed_cron_safe_expiry_ac1(self):
         """Verify Acceptance Criterion 1: Delayed cron does not allow overlapping protected allocation."""
@@ -3730,13 +3730,13 @@ class TestEpic19BackendVerificationAndReleaseGates(unittest.TestCase):
         self.assertTrue(test_file.exists(), "backend-verification-and-release-gates.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js release verification tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 10", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 10$")
 
     def test_acceptance_matrix_linked_to_blueprint_t01(self):
         """Verify Task T01: Acceptance matrix formally links scenarios to owning epics and Blueprint §17.1 / §19 source sections."""
@@ -3980,13 +3980,13 @@ class TestEpic20FutureExtensionsAndUnresolvedScopeDefinition(unittest.TestCase):
         self.assertTrue(test_file.exists(), "future-extensions.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js future extensions tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 11", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 11$")
 
     def test_python_deferred_scope_register_completeness_t01(self):
         """Verify Task T01: All 6 candidate extensions maintained with designated owners and rationale."""
@@ -4142,13 +4142,13 @@ class TestEpic21FinalizedV2ContractsClaimsAndCompatibility(unittest.TestCase):
         self.assertTrue(test_file.exists(), "v2-compatibility.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js v2 compatibility tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 14", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 14$")
 
     def test_python_source_provenance_sha256_t01(self):
         """Verify Task T01: All 3 text files and 4 diagrams match exact authoritative SHA-256 hashes."""
@@ -4405,13 +4405,13 @@ class TestEpic22PhoneOtpSessionsAndManagerPermissions(unittest.TestCase):
         self.assertTrue(test_file.exists(), "phone-otp-and-rbac.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js OTP/RBAC tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 13", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 13$")
 
     def test_python_otp_request_and_secret_redaction_t01_t03_ac4(self):
         """Verify Tasks T01, T03, AC4: OTP challenge generation with secret redaction."""
@@ -4684,13 +4684,13 @@ class TestEpic23AutomaticTableRecommendationUpgrade(unittest.TestCase):
         self.assertTrue(test_file.exists(), "recommendations.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js recommendations tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 15", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 15$")
 
     def test_python_scoring_weights_and_normalization_t01(self):
         """Verify Task T01: Weights adhere strictly to PRD §13 (0.40C + 0.25P + 0.20L + 0.15O)."""
@@ -4946,13 +4946,13 @@ class TestEpic24SocketIoBullMqAndEventRecovery(unittest.TestCase):
         self.assertTrue(test_file.exists(), "socketio-bullmq-event-recovery.test.js must exist")
 
         res = subprocess.run(
-            ["node", "--test", str(test_file)],
+            ["node", "scripts/run-node-tests.js", str(test_file)],
             cwd=str(REPO_ROOT),
             capture_output=True,
             text=True,
         )
         self.assertEqual(res.returncode, 0, f"Node.js realtime tests failed: {res.stderr} {res.stdout}")
-        self.assertIn("pass 24", res.stdout)
+        self.assertRegex(res.stdout, r"(?m)^# pass 24$")
 
     def test_python_event_monotonic_sequencing_t01(self):
         """Verify Task T01 & AC 1/2: Monotonic event sequence and versioning."""

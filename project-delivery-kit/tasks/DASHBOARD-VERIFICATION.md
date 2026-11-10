@@ -1,22 +1,12 @@
-# Completion-preservation root fix
+# Current dashboard verification — 2026-11-10
 
-Both dashboard.html and dashboard-v2.html now use the same active EPIC-*.md records and produce identical output bytes. No archive is used as a separate live status source.
+EPIC-001–024 remain completed with their existing reports. EPIC-025 is completed after verified test-harness remediation. EPIC-026 is completed after runtime boot, fail-closed configuration, and health probe verification. EPIC-027–036 remain backlog pending integration implementation and executable evidence.
 
-## Corrected source state
+- Total: 36 epics; 26 completed, 0 in progress, 10 backlog.
+- Both dashboard filenames are generated from the same active Markdown dataset, with identical bytes.
+- Audit remediation sidebar renders 12 new epic mappings, all 20 formerly failing wrapper counts, delivery order and financial acceptance scenarios.
+- Browser QA on localhost verified rendered cards, counters and the audit reference view; final metadata rebuild is covered by regression checks.
+- Full CI passed all eight local gates, including 424 Node tests and 225 Python checks; see [test evidence](TEST-EVIDENCE.md).
+- Regression checks preserve old completed IDs, titles and original completion reports; new records cannot erase that history.
 
-- EPIC-001–020: original IDs, original titles, original assignees/checklists/completion reports, all completed.
-- EPIC-021–024: additive finalized-v2 upgrades, all backlog.
-- Total: 24 epics, 20 completed, 4 backlog, 0 blocked.
-- Original completion reports remain active, not merely hidden in archived pages.
-- Four source diagrams and finalized architecture/API/database references remain available.
-
-## Verified
-
-- Regression test verifies every original identity/title/completion report is preserved in the active source.
-- Regression test rebuilds twice and verifies both public filenames remain identical, all 20 completed IDs survive, and every embedded status matches its Markdown source.
-- Existing builder and inline JavaScript checks pass.
-- Command: python3 -m unittest tests.test_dashboard_completion_preservation tests.test_ci_cd_verification.TestDashboardAndTasks -v
-- Result: 4 tests passed.
-- Actual browser verification on dashboard-v2.html: summary shows Completed 20; Completed filter shows 20 of 24 epics with 20 cards; board shows Completed 20 and Backlog 4.
-
-These are dashboard/status checks. They do not add backend implementation, execute migrations or claim new v2 runtime verification. The root cause was reused epic identities and divergent output datasets; both have been removed.
+Real PostgreSQL/provider/load/restore checks remain separately pending in the new epics. Dashboard completion does not certify production readiness.

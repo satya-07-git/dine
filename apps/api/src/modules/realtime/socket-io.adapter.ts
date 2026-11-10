@@ -15,6 +15,7 @@ import { SocketIoGateway } from './socket-io.gateway';
  * Socket.IO Outbox Adapter:
  * Connects outbox worker dispatch to Socket.IO room broadcast.
  * Implements Task T08: Connect outbox dispatch to gateway through an adapter.
+ * Ensures: No-recipient send is not reported as confirmed customer delivery.
  */
 @Injectable()
 export class SocketIoAdapter implements NotificationSender {
@@ -51,13 +52,17 @@ export class SocketIoAdapter implements NotificationSender {
       `[SocketIoAdapter] Dispatched outbox event=${eventType} to room=${targetRoom} recipients=${broadcastResult.deliveredToSockets}`
     );
 
+    const isDeliveredToActiveClient = broadcastResult.deliveredToSockets > 0;
+
     return {
       channel: this.channel,
       recipientId: target.recipientId,
       idempotencyKey: target.idempotencyKey,
       success: true,
-      status: NotificationDeliveryStatus.DELIVERED,
-      deliveredAt: new Date().toISOString(),
+      status: isDeliveredToActiveClient
+        ? NotificationDeliveryStatus.DELIVERED
+        : NotificationDeliveryStatus.SENT,
+      deliveredAt: isDeliveredToActiveClient ? new Date().toISOString() : undefined,
     };
   }
 }

@@ -169,3 +169,37 @@ Empirical performance measurements conducted in staging environment (2 vCPU / 4 
 | **Two-Customer Concurrency Winner** | Exactly 1 winner per slot | **1 winner / 99 rejected** | Passed (Zero double-booking) |
 | **Lock Wait Duration** | p95 < 50 ms | **p95 = 12.4 ms** | Passed |
 | **Dead-Letter Recovery** | Visible reason on failure | **100% captured** | Passed |
+
+---
+
+## 9. Production Runtime Boot, Secrets & Shutdown Governance (EPIC-026)
+
+### 9.1 Node.js Runtime Support Matrix
+- **Supported Versions**: Node.js 20 LTS (`^20.17.0`) and Node.js 22 LTS (`^22.0.0`). Verified active under Node.js 24 (`v24.18.0`).
+- **Engine Constraints**: ECMAScript 2022+ features required; native fetch and structured clone supported.
+
+### 9.2 Migration-Before-Start Deployment Ordering
+- **Pre-Start Ordering**: SQL migrations MUST be applied prior to application container boot.
+- **Kubernetes / Container Orchestration**:
+  1. An `initContainer` executes `node scripts/migrate.js` against the target database.
+  2. If any migration fails, the init container exits with a non-zero exit code, aborting rollout before the application container starts.
+  3. The main application pod boots only after `schema_migrations` reflects the target release version.
+
+### 9.3 Secret Injection & Fail-Closed Validation
+- **Secret Injection**: Secrets are injected as environment variables via cloud secrets managers (AWS Secrets Manager, HashiCorp Vault, Doppler).
+- **Zero Fallback in Production**: When `NODE_ENV=production`:
+  - `DATABASE_URL` cannot point to localhost or loopback addresses.
+  - `SUPABASE_URL` and `SUPABASE_JWT_SECRET` cannot use mock or dev defaults (`SUPABASE_JWT_SECRET` must be >= 32 characters).
+  - `PAYMENT_PROVIDER_MODE`, `OTP_PROVIDER_MODE`, and `JOB_RUNNER_MODE` cannot be set to `mock` or `in_memory`.
+  - `REDIS_URL` is required for BullMQ queues.
+  - `CORS_ORIGINS` cannot use wildcard `*` with credentials enabled.
+- **Fail-Closed Sanitization**: Any configuration failure throws `[Configuration Error]` immediately upon boot. Sensitive fields are masked in logs (`sensitive: true`) to ensure credentials and secrets are never printed to stdout/stderr.
+
+### 9.4 Graceful Shutdown & Connection Draining
+- **Signal Handling**: Process listens for `SIGTERM` and `SIGINT`.
+- **Shutdown Sequence**:
+  1. Stops accepting incoming HTTP connections on ingress routes.
+  2. Drains active HTTP in-flight requests within configured budget (`SHUTDOWN_TIMEOUT_MS`, default 10,000 ms).
+  3. Signals background workers to finish current claim leases without picking up new jobs.
+  4. Invokes NestJS `onModuleDestroy()` hooks, closing the PostgreSQL connection pool (`pool.end()`).
+  5. If shutdown does not complete within budget, forces process termination with exit code 1.
