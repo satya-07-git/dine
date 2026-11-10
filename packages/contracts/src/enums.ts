@@ -321,3 +321,73 @@ export enum V2IdempotencyRecordStatus {
   RESOLVED = 'RESOLVED',
   CONFLICT = 'CONFLICT',
 }
+
+// EPIC-022 Phone OTP, Sessions and Manager Permission Upgrade Enums
+export enum OtpChallengeStatus {
+  PENDING = 'PENDING',
+  VERIFIED = 'VERIFIED',
+  EXPIRED = 'EXPIRED',
+  MAX_ATTEMPTS_EXCEEDED = 'MAX_ATTEMPTS_EXCEEDED',
+}
+
+export enum SessionStatus {
+  ACTIVE = 'ACTIVE',
+  REVOKED = 'REVOKED',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum StaffRole {
+  OWNER = 'OWNER',
+  MANAGER = 'MANAGER',
+  HOST = 'HOST',
+  STAFF = 'STAFF',
+}
+
+export enum StaffStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  REVOKED = 'REVOKED',
+}
+
+export enum AuthRole {
+  CUSTOMER = 'CUSTOMER',
+  STAFF = 'STAFF',
+  HOST = 'HOST',
+  MANAGER = 'MANAGER',
+  OWNER = 'OWNER',
+  PLATFORM_ADMIN = 'PLATFORM_ADMIN',
+}
+
+// EPIC-024 Socket.IO, BullMQ and Database Event Recovery Upgrade Enums
+export enum SocketRoomType {
+  RESTAURANT = 'restaurant',
+  BOOKING = 'booking',
+}
+
+export enum SocketEventType {
+  TABLE_AVAILABILITY_CHANGED = 'table.availability.changed',
+  HOLD_CREATED = 'hold.created',
+  HOLD_EXPIRED = 'hold.expired',
+  BOOKING_CONFIRMED = 'booking.confirmed',
+  BOOKING_CANCELLED = 'booking.cancelled',
+  BOOKING_CHECKED_IN = 'booking.checked_in',
+  BOOKING_SEATED = 'booking.seated',
+  BOOKING_COMPLETED = 'booking.completed',
+}
+
+export enum BullQueueName {
+  HOLD_EXPIRY = 'hold-expiry',
+  PAYMENT_RECONCILIATION = 'payment-reconciliation',
+  OUTBOX_DISPATCH = 'outbox-dispatch',
+}
+
+export enum EventRecoveryMode {
+  REPLAY = 'REPLAY',
+  SNAPSHOT_REQUIRED = 'SNAPSHOT_REQUIRED',
+}
+
+export enum RedisQueueState {
+  ONLINE = 'ONLINE',
+  DEGRADED = 'DEGRADED',
+  OFFLINE = 'OFFLINE',
+}

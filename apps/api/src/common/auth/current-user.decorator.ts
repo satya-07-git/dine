@@ -10,6 +10,8 @@ export interface AuthenticatedUser {
   userId: string;
   email: string;
   role?: string;
+  phone?: string;
+  sessionId?: string;
   authUid?: string;
   restaurantId?: string;
   memberships?: UserMembership[];

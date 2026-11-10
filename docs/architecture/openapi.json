@@ -123,7 +123,7 @@
             "description": "Membership status updated"
           },
           "403": {
-            "description": "Forbidden: caller is not an active restaurant owner"
+            "description": "Forbidden: caller is not an active restaurant owner or manager"
           }
         },
         "tags": [
@@ -152,6 +152,796 @@
         },
         "tags": [
           "Identity & Access"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/auth/otp/request": {
+      "post": {
+        "operationId": "AuthOtpController_requestOtp",
+        "summary": "Request phone OTP challenge (FR-A01, PRD §11.1)",
+        "description": "Generates a 6-digit cryptographic challenge with rate limiting (max 3/10m) and enumeration protection. OTP value is redacted from responses and logs.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "OTP challenge generated successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid phone number"
+          },
+          "429": {
+            "description": "Too Many Requests: Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/api/v1/auth/otp/request": {
+      "post": {
+        "operationId": "AuthOtpController_requestOtp",
+        "summary": "Request phone OTP challenge (FR-A01, PRD §11.1)",
+        "description": "Generates a 6-digit cryptographic challenge with rate limiting (max 3/10m) and enumeration protection. OTP value is redacted from responses and logs.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "OTP challenge generated successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid phone number"
+          },
+          "429": {
+            "description": "Too Many Requests: Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "operationId": "AuthOtpController_requestOtp",
+        "summary": "Request phone OTP challenge (FR-A01, PRD §11.1)",
+        "description": "Generates a 6-digit cryptographic challenge with rate limiting (max 3/10m) and enumeration protection. OTP value is redacted from responses and logs.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "OTP challenge generated successfully"
+          },
+          "400": {
+            "description": "Bad Request: Invalid phone number"
+          },
+          "429": {
+            "description": "Too Many Requests: Rate limit exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/auth/otp/verify": {
+      "post": {
+        "operationId": "AuthOtpController_verifyOtp",
+        "summary": "Verify phone OTP and issue revocable session (FR-A01, FR-A02)",
+        "description": "Verifies the 6-digit OTP code against salt/hash, consumes challenge, provisions profile, and returns an authenticated session with JWT and refresh token.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully; session issued"
+          },
+          "400": {
+            "description": "Bad Request: Invalid OTP format or missing challenge"
+          },
+          "401": {
+            "description": "Unauthorized: Incorrect or expired OTP, or attempt budget exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/api/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "AuthOtpController_verifyOtp",
+        "summary": "Verify phone OTP and issue revocable session (FR-A01, FR-A02)",
+        "description": "Verifies the 6-digit OTP code against salt/hash, consumes challenge, provisions profile, and returns an authenticated session with JWT and refresh token.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully; session issued"
+          },
+          "400": {
+            "description": "Bad Request: Invalid OTP format or missing challenge"
+          },
+          "401": {
+            "description": "Unauthorized: Incorrect or expired OTP, or attempt budget exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/v1/auth/otp/verify": {
+      "post": {
+        "operationId": "AuthOtpController_verifyOtp",
+        "summary": "Verify phone OTP and issue revocable session (FR-A01, FR-A02)",
+        "description": "Verifies the 6-digit OTP code against salt/hash, consumes challenge, provisions profile, and returns an authenticated session with JWT and refresh token.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully; session issued"
+          },
+          "400": {
+            "description": "Bad Request: Invalid OTP format or missing challenge"
+          },
+          "401": {
+            "description": "Unauthorized: Incorrect or expired OTP, or attempt budget exceeded"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "operationId": "AuthOtpController_refreshToken",
+        "summary": "Refresh session with token rotation & reuse detection (FR-A05)",
+        "description": "Rotates the refresh token and issues a new access token. Replay of an already-used or revoked token revokes the entire session family.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session refreshed with new access and rotated refresh token"
+          },
+          "401": {
+            "description": "Unauthorized: Invalid, expired, or replayed refresh token"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthOtpController_refreshToken",
+        "summary": "Refresh session with token rotation & reuse detection (FR-A05)",
+        "description": "Rotates the refresh token and issues a new access token. Replay of an already-used or revoked token revokes the entire session family.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session refreshed with new access and rotated refresh token"
+          },
+          "401": {
+            "description": "Unauthorized: Invalid, expired, or replayed refresh token"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthOtpController_refreshToken",
+        "summary": "Refresh session with token rotation & reuse detection (FR-A05)",
+        "description": "Rotates the refresh token and issues a new access token. Replay of an already-used or revoked token revokes the entire session family.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session refreshed with new access and rotated refresh token"
+          },
+          "401": {
+            "description": "Unauthorized: Invalid, expired, or replayed refresh token"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "AuthOtpController_logout",
+        "summary": "Revoke session and log out (FR-A05, PRD §11.1)",
+        "description": "Immediately revokes the session and its refresh token. Revoked sessions are blocked from subsequent API calls and private room subscriptions.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session revoked successfully"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthOtpController_logout",
+        "summary": "Revoke session and log out (FR-A05, PRD §11.1)",
+        "description": "Immediately revokes the session and its refresh token. Revoked sessions are blocked from subsequent API calls and private room subscriptions.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session revoked successfully"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthOtpController_logout",
+        "summary": "Revoke session and log out (FR-A05, PRD §11.1)",
+        "description": "Immediately revokes the session and its refresh token. Revoked sessions are blocked from subsequent API calls and private room subscriptions.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Session revoked successfully"
+          }
+        },
+        "tags": [
+          "Identity & Access"
+        ]
+      }
+    },
+    "/manager/roles/matrix": {
+      "get": {
+        "operationId": "RestaurantStaffController_getRoleMatrix",
+        "summary": "Get explicit role and action permission matrix (FR-A03, PRD §3)",
+        "description": "Returns granular allowed and denied actions for CUSTOMER, HOST, MANAGER, OWNER, and PLATFORM_ADMIN roles.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Role and action permission matrix"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ]
+      }
+    },
+    "/api/v1/manager/roles/matrix": {
+      "get": {
+        "operationId": "RestaurantStaffController_getRoleMatrix",
+        "summary": "Get explicit role and action permission matrix (FR-A03, PRD §3)",
+        "description": "Returns granular allowed and denied actions for CUSTOMER, HOST, MANAGER, OWNER, and PLATFORM_ADMIN roles.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Role and action permission matrix"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ]
+      }
+    },
+    "/roles/matrix": {
+      "get": {
+        "operationId": "RestaurantStaffController_getRoleMatrix",
+        "summary": "Get explicit role and action permission matrix (FR-A03, PRD §3)",
+        "description": "Returns granular allowed and denied actions for CUSTOMER, HOST, MANAGER, OWNER, and PLATFORM_ADMIN roles.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Role and action permission matrix"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ]
+      }
+    },
+    "/manager/restaurants/{restaurantId}/staff": {
+      "get": {
+        "operationId": "RestaurantStaffController_listStaff",
+        "summary": "List restaurant staff members (Manager & Owner only)",
+        "description": "Returns scoped staff memberships for restaurant. Tenant-isolated: manager of Restaurant A cannot view Restaurant B staff.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of restaurant staff members"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RestaurantStaffController_addStaff",
+        "summary": "Add / invite staff member to restaurant (Manager & Owner only)",
+        "description": "Assigns scoped HOST, MANAGER, or STAFF role to user. Enforces restaurant tenant boundary.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Staff membership created successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/manager/restaurants/{restaurantId}/staff": {
+      "get": {
+        "operationId": "RestaurantStaffController_listStaff",
+        "summary": "List restaurant staff members (Manager & Owner only)",
+        "description": "Returns scoped staff memberships for restaurant. Tenant-isolated: manager of Restaurant A cannot view Restaurant B staff.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of restaurant staff members"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RestaurantStaffController_addStaff",
+        "summary": "Add / invite staff member to restaurant (Manager & Owner only)",
+        "description": "Assigns scoped HOST, MANAGER, or STAFF role to user. Enforces restaurant tenant boundary.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Staff membership created successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/restaurants/{restaurantId}/staff": {
+      "get": {
+        "operationId": "RestaurantStaffController_listStaff",
+        "summary": "List restaurant staff members (Manager & Owner only)",
+        "description": "Returns scoped staff memberships for restaurant. Tenant-isolated: manager of Restaurant A cannot view Restaurant B staff.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of restaurant staff members"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RestaurantStaffController_addStaff",
+        "summary": "Add / invite staff member to restaurant (Manager & Owner only)",
+        "description": "Assigns scoped HOST, MANAGER, or STAFF role to user. Enforces restaurant tenant boundary.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Staff membership created successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/staff": {
+      "get": {
+        "operationId": "RestaurantStaffController_listStaff",
+        "summary": "List restaurant staff members (Manager & Owner only)",
+        "description": "Returns scoped staff memberships for restaurant. Tenant-isolated: manager of Restaurant A cannot view Restaurant B staff.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of restaurant staff members"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER membership in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "operationId": "RestaurantStaffController_addStaff",
+        "summary": "Add / invite staff member to restaurant (Manager & Owner only)",
+        "description": "Assigns scoped HOST, MANAGER, or STAFF role to user. Enforces restaurant tenant boundary.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Staff membership created successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/manager/restaurants/{restaurantId}/staff/{staffId}": {
+      "patch": {
+        "operationId": "RestaurantStaffController_updateStaff",
+        "summary": "Update staff role or revoke membership (Manager & Owner only)",
+        "description": "Modifies staff role or status (ACTIVE -> SUSPENDED / REVOKED). Revocation immediately invalidates staff write operations and staff private room subscriptions.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "staffId",
+            "required": true,
+            "in": "path",
+            "description": "Staff Membership UUID or User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff membership updated successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/manager/restaurants/{restaurantId}/staff/{staffId}": {
+      "patch": {
+        "operationId": "RestaurantStaffController_updateStaff",
+        "summary": "Update staff role or revoke membership (Manager & Owner only)",
+        "description": "Modifies staff role or status (ACTIVE -> SUSPENDED / REVOKED). Revocation immediately invalidates staff write operations and staff private room subscriptions.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "staffId",
+            "required": true,
+            "in": "path",
+            "description": "Staff Membership UUID or User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff membership updated successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/restaurants/{restaurantId}/staff/{staffId}": {
+      "patch": {
+        "operationId": "RestaurantStaffController_updateStaff",
+        "summary": "Update staff role or revoke membership (Manager & Owner only)",
+        "description": "Modifies staff role or status (ACTIVE -> SUSPENDED / REVOKED). Revocation immediately invalidates staff write operations and staff private room subscriptions.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "staffId",
+            "required": true,
+            "in": "path",
+            "description": "Staff Membership UUID or User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff membership updated successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/restaurants/{restaurantId}/staff/{staffId}": {
+      "patch": {
+        "operationId": "RestaurantStaffController_updateStaff",
+        "summary": "Update staff role or revoke membership (Manager & Owner only)",
+        "description": "Modifies staff role or status (ACTIVE -> SUSPENDED / REVOKED). Revocation immediately invalidates staff write operations and staff private room subscriptions.",
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "required": true,
+            "in": "path",
+            "description": "Restaurant UUID",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "staffId",
+            "required": true,
+            "in": "path",
+            "description": "Staff Membership UUID or User UUID",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff membership updated successfully"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks active OWNER or MANAGER role in this restaurant"
+          }
+        },
+        "tags": [
+          "Identity & Access",
+          "Restaurant Staff RBAC"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/admin/restaurants/onboard": {
+      "post": {
+        "operationId": "PlatformAdminController_onboardRestaurant",
+        "summary": "Platform restaurant onboarding with mandatory audit justification (PRD §3.4)",
+        "description": "Creates a new restaurant tenant and assigns initial manager/owner. Requires non-empty reason and records full audit trail.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Restaurant onboarded successfully"
+          },
+          "400": {
+            "description": "Bad Request: Missing restaurant name or non-empty reason"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks platform administrator privileges"
+          }
+        },
+        "tags": [
+          "Platform Administration"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/restaurants/onboard": {
+      "post": {
+        "operationId": "PlatformAdminController_onboardRestaurant",
+        "summary": "Platform restaurant onboarding with mandatory audit justification (PRD §3.4)",
+        "description": "Creates a new restaurant tenant and assigns initial manager/owner. Requires non-empty reason and records full audit trail.",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": "Restaurant onboarded successfully"
+          },
+          "400": {
+            "description": "Bad Request: Missing restaurant name or non-empty reason"
+          },
+          "403": {
+            "description": "Forbidden: Caller lacks platform administrator privileges"
+          }
+        },
+        "tags": [
+          "Platform Administration"
         ],
         "security": [
           {
@@ -4495,6 +5285,281 @@
           }
         ]
       }
+    },
+    "/api/v1/recommendations/tables": {
+      "post": {
+        "operationId": "RecommendationsController_getRecommendations",
+        "summary": "Get deterministic best-available table recommendations",
+        "description": "Filters mandatory eligibility first, then evaluates deterministic scoring (Capacity Fit 40%, Preference 25%, Location 20%, Operations 15%) with stable tie-breaking. Returns ranked candidates with score explanation; grants NO allocation claim.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ranked table recommendations"
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "404": {
+            "description": "Restaurant not found"
+          }
+        },
+        "tags": [
+          "Recommendations"
+        ]
+      }
+    },
+    "/v1/recommendations": {
+      "post": {
+        "operationId": "RecommendationsController_getRecommendationsLegacy",
+        "summary": "Get deterministic best-available table recommendations (legacy alias)",
+        "description": "Backward-compatible alias for POST /api/v1/recommendations/tables.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Ranked table recommendations"
+          }
+        },
+        "tags": [
+          "Recommendations"
+        ]
+      }
+    },
+    "/api/v1/recommendations/holds": {
+      "post": {
+        "operationId": "RecommendationsController_acquireAutoHold",
+        "summary": "Acquire atomic hold with bounded automatic fallback",
+        "description": "Attempts hold on ranked candidate #1; on concurrent race conflict, retries next candidate up to retry_cap. Customer explicit manual selection never silently substitutes tables.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Client idempotency key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Automatic hold acquired successfully"
+          },
+          "409": {
+            "description": "All eligible candidates exhausted or table unavailable"
+          }
+        },
+        "tags": [
+          "Recommendations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/holds/auto": {
+      "post": {
+        "operationId": "RecommendationsController_acquireAutoHoldAlias",
+        "summary": "Acquire atomic hold with bounded automatic fallback (alias)",
+        "description": "Alias for POST /api/v1/recommendations/holds.",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Automatic hold acquired successfully"
+          },
+          "409": {
+            "description": "Candidates exhausted"
+          }
+        },
+        "tags": [
+          "Recommendations"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/realtime/socket/authorize": {
+      "post": {
+        "operationId": "RealtimeController_authorizeSocketRoom",
+        "summary": "Authorize Socket.IO Room Subscription",
+        "description": "Validates caller ownership or active restaurant staff membership to join an authorized room.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Room subscription authorized"
+          },
+          "403": {
+            "description": "Forbidden: caller lacks permissions for requested room"
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/realtime/events/replay": {
+      "get": {
+        "operationId": "RealtimeController_replayEvents",
+        "summary": "Database-Backed Event Replay & Reconnect Recovery",
+        "description": "Replays missed sequenced reservation events or directs reconnecting clients to authoritative REST snapshot if retention window is exceeded.",
+        "parameters": [
+          {
+            "name": "entity_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since_sequence",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "since_version",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Missed events or mandatory snapshot fallback returned"
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
+    },
+    "/api/v1/realtime/redis/rebuild": {
+      "post": {
+        "operationId": "RealtimeController_rebuildRedis",
+        "summary": "Rebuild Redis Queues from PostgreSQL Authority",
+        "description": "Scans PostgreSQL tables to reconstruct hold-expiry, payment-reconciliation, and outbox-dispatch queues after Redis outage.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Queue rebuild completed from PostgreSQL authority"
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
+    },
+    "/api/v1/realtime/redis/health": {
+      "get": {
+        "operationId": "RealtimeController_getRedisHealth",
+        "summary": "Redis & BullMQ Queue Health",
+        "description": "Returns connection status and queue degradation metrics.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
+    },
+    "/api/v1/realtime/dead-letters": {
+      "get": {
+        "operationId": "RealtimeController_listDeadLetters",
+        "summary": "List Visible Dead-Letter Jobs",
+        "description": "Inspects failed worker jobs that reached max retry limit with recovery owners.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Dead letters listed with safe recovery owner"
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
+    },
+    "/api/v1/realtime/dead-letters/{id}/retry": {
+      "post": {
+        "operationId": "RealtimeController_retryDeadLetter",
+        "summary": "Retry Dead-Letter Job",
+        "description": "Resets attempt count to allow safe re-execution of a dead-letter job.",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
+    },
+    "/api/v1/realtime/metrics": {
+      "get": {
+        "operationId": "RealtimeController_getMetrics",
+        "summary": "Realtime & Contention Operational Metrics",
+        "description": "Provides telemetry for connected clients, p95 delivery latency, and DB contention.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Realtime metrics report"
+          }
+        },
+        "tags": [
+          "Socket.IO, BullMQ & Event Recovery"
+        ]
+      }
     }
   },
   "info": {
@@ -4579,6 +5644,14 @@
     {
       "name": "Finalized V2 Compatibility & Claims",
       "description": "V2 contracts, claims, 120s expiry, atomic holds, and compatibility"
+    },
+    {
+      "name": "Recommendations",
+      "description": "Deterministic best-available table recommendations and bounded fallback"
+    },
+    {
+      "name": "Socket.IO, BullMQ & Event Recovery",
+      "description": "Authorized Socket.IO rooms, BullMQ/Redis worker queues, and database-backed event recovery"
     }
   ],
   "servers": [],

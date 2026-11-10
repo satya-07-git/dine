@@ -1817,3 +1817,296 @@ export interface V2SourceProvenanceResponseDto {
   }>;
   verifiedAt: string;
 }
+
+// EPIC-022 Phone OTP, Sessions and Manager Permission Upgrade DTOs
+export interface RequestOtpRequestDto {
+  phone: string;
+}
+
+export interface RequestOtpResponseDto {
+  challengeId: string;
+  phone: string;
+  expiresInSeconds: number;
+  message: string;
+}
+
+export interface VerifyOtpRequestDto {
+  challengeId?: string;
+  phone: string;
+  otp: string;
+}
+
+export interface AuthSessionUserDto {
+  id: string;
+  phone: string;
+  role: string;
+  fullName?: string;
+  email?: string;
+}
+
+export interface AuthSessionDto {
+  sessionId: string;
+  accessToken: string;
+  refreshToken: string;
+  tokenType: string;
+  expiresIn: number;
+  user: AuthSessionUserDto;
+}
+
+export interface RefreshTokenRequestDto {
+  refreshToken: string;
+}
+
+export interface LogoutRequestDto {
+  sessionId?: string;
+  refreshToken?: string;
+}
+
+export interface LogoutResponseDto {
+  success: boolean;
+  message: string;
+  revokedAt: string;
+}
+
+export interface RestaurantStaffDto {
+  id: string;
+  restaurantId: string;
+  userId: string;
+  role: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  user?: {
+    fullName?: string;
+    email?: string;
+    phone?: string;
+  };
+}
+
+export interface CreateRestaurantStaffDto {
+  userId: string;
+  role: 'MANAGER' | 'HOST' | 'STAFF';
+}
+
+export interface UpdateRestaurantStaffDto {
+  role?: 'MANAGER' | 'HOST' | 'STAFF';
+  status?: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  reason?: string;
+}
+
+export interface PlatformOnboardRestaurantDto {
+  name: string;
+  slug?: string;
+  description?: string;
+  timezone?: string;
+  policy_mode?: string;
+  deposit_amount_minor?: number;
+  deposit_currency?: string;
+  owner_id?: string;
+  owner_email?: string;
+  owner_phone?: string;
+  owner_name?: string;
+  reason: string;
+}
+
+export interface PlatformOnboardRestaurantResponseDto {
+  restaurant: any;
+  owner: any;
+  staffMembership: any;
+  audited: boolean;
+}
+
+export interface RoleActionMatrixDto {
+  role: string;
+  allowedActions: string[];
+  deniedActions: string[];
+}
+
+
+// ============================================================================
+// EPIC-023 Automatic Table Recommendation Upgrade DTOs
+// ============================================================================
+
+export interface RecommendationComponentScoreDto {
+  raw: number;
+  weight: number;
+  weighted: number;
+}
+
+export interface RecommendationScoreBreakdownDto {
+  capacity_fit: RecommendationComponentScoreDto;
+  preference_match: RecommendationComponentScoreDto;
+  location_suitability: RecommendationComponentScoreDto;
+  operational_efficiency: RecommendationComponentScoreDto;
+}
+
+export interface RecommendedCandidateDto {
+  table_id: string;
+  table_number: string;
+  floor_id: string;
+  floor_name?: string;
+  zone: string;
+  capacity: number;
+  min_capacity: number;
+  score: number;
+  rank: number;
+  score_breakdown: RecommendationScoreBreakdownDto;
+  explanation: string;
+}
+
+export interface TableRecommendationRequestDto {
+  restaurant_id: string;
+  party_size: number;
+  requested_start: string;
+  seating_preference?: string;
+  dietary_requirements?: string[];
+  special_requests?: string;
+  max_candidates?: number;
+}
+
+export interface TableRecommendationResponseDto {
+  restaurant_id: string;
+  party_size: number;
+  requested_start: string;
+  dining_period: {
+    start: string;
+    end: string;
+  };
+  total_eligible_tables: number;
+  recommendations: RecommendedCandidateDto[];
+  recommended_table_id: string | null;
+  recommendation_only: boolean;
+  timestamp: string;
+}
+
+export interface AutoHoldRequestDto {
+  restaurant_id: string;
+  party_size: number;
+  requested_start: string;
+  seating_preference?: string;
+  dietary_requirements?: string[];
+  special_requests?: string;
+  retry_cap?: number;
+  auto_recommend?: boolean;
+  table_id?: string;
+}
+
+export interface AutoHoldResponseDto {
+  hold_id: string;
+  booking_id: string;
+  restaurant_id: string;
+  table_id: string;
+  table_number: string;
+  party_size: number;
+  dining_period: {
+    start: string;
+    end: string;
+  };
+  expires_at: string;
+  server_time: string;
+  status: string;
+  deposit: DepositSummaryDto;
+  selection_mode: 'AUTOMATIC' | 'MANUAL';
+  retries_attempted: number;
+  recommended_rank_chosen: number;
+  message: string;
+}
+
+// ============================================================================
+// EPIC-024 Socket.IO, BullMQ and Database Event Recovery Upgrade DTOs
+// ============================================================================
+
+export interface SocketAuthorizeRequestDto {
+  room: string;
+  socket_id?: string;
+}
+
+export interface SocketAuthorizeResponseDto {
+  authorized: boolean;
+  room: string;
+  room_type: 'restaurant' | 'booking';
+  entity_id: string;
+  audience: 'STAFF' | 'CUSTOMER' | 'PUBLIC_AVAILABILITY';
+  expires_at: string;
+  room_token: string;
+  message: string;
+}
+
+export interface SocketEventEnvelopeDto<T = Record<string, unknown>> {
+  eventId: string;
+  eventType: string;
+  entityId: string;
+  version: number;
+  sequenceNumber: number;
+  occurredAt: string;
+  payload: T;
+}
+
+export interface EventReplayRequestDto {
+  entity_id: string;
+  since_sequence?: number;
+  since_version?: number;
+  limit?: number;
+}
+
+export interface EventReplayResponseDto {
+  entity_id: string;
+  mode: 'REPLAY' | 'SNAPSHOT_REQUIRED';
+  current_version: number;
+  current_sequence: number;
+  events: SocketEventEnvelopeDto<any>[];
+  resync_required: boolean;
+  snapshot_url?: string;
+  min_retained_sequence: number;
+  message: string;
+}
+
+export interface BullJobDto {
+  job_id: string;
+  queue_name: string;
+  entity_id: string;
+  job_type: string;
+  version: number;
+  payload: Record<string, any>;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  last_error?: string;
+  dead_letter_reason?: string;
+  recovery_owner?: string;
+  scheduled_for: string;
+  completed_at?: string;
+}
+
+export interface RedisRebuildRequestDto {
+  queue_names?: string[];
+  dry_run?: boolean;
+}
+
+export interface RedisRebuildResponseDto {
+  reconstructed_jobs: {
+    hold_expiry: number;
+    payment_reconciliation: number;
+    outbox_dispatch: number;
+    total: number;
+  };
+  queue_state: 'ONLINE' | 'DEGRADED';
+  rebuilt_from: 'POSTGRESQL_AUTHORITATIVE';
+  timestamp: string;
+}
+
+export interface DeadLetterListResponseDto {
+  total: number;
+  jobs: BullJobDto[];
+  recovery_owner: string;
+}
+
+export interface RealtimeMetricsResponseDto {
+  ws_connected_clients: number;
+  active_room_subscriptions: number;
+  p95_delivery_latency_ms: number;
+  db_contention_events: number;
+  redis_queue_state: 'ONLINE' | 'DEGRADED';
+  reconstructed_jobs_total: number;
+  timestamp: string;
+}

@@ -23,6 +23,8 @@ import { ObservabilityModule } from './modules/observability/observability.modul
 import { ReleaseVerificationModule } from './modules/release-verification/release-verification.module';
 import { FutureExtensionsModule } from './modules/future-extensions/future-extensions.module';
 import { V2CompatibilityModule } from './modules/v2-compatibility/v2-compatibility.module';
+import { RecommendationsModule } from './modules/recommendations/recommendations.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { V2CompatibilityModule } from './modules/v2-compatibility/v2-compatibili
     ReleaseVerificationModule,
     FutureExtensionsModule,
     V2CompatibilityModule,
+    RecommendationsModule,
+    RealtimeModule,
   ],
 })
 export class AppModule implements NestModule {

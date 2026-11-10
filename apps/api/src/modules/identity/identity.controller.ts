@@ -35,11 +35,11 @@ export class IdentityController {
 
   @Patch('memberships/:id/status')
   @UseGuards(AuthGuard, TenantGuard)
-  @RequireRestaurantRoles('OWNER')
+  @RequireRestaurantRoles('OWNER', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update restaurant staff membership status (e.g. revoke/suspend)' })
   @ApiResponse({ status: 200, description: 'Membership status updated' })
-  @ApiResponse({ status: 403, description: 'Forbidden: caller is not an active restaurant owner' })
+  @ApiResponse({ status: 403, description: 'Forbidden: caller is not an active restaurant owner or manager' })
   async updateMembershipStatus(
     @Param('id') id: string,
     @Body() body: { status: 'ACTIVE' | 'SUSPENDED' }

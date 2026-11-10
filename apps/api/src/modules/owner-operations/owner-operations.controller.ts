@@ -211,7 +211,7 @@ export class OwnerOperationsController {
 
   @Patch('restaurants/:id/policies')
   @UseGuards(AuthGuard, TenantGuard)
-  @RequireRestaurantRoles('OWNER')
+  @RequireRestaurantRoles('OWNER', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Update restaurant policies (owner only)',
@@ -264,7 +264,7 @@ export class OwnerOperationsController {
 
   @Get('restaurants/:id/policy-history')
   @UseGuards(AuthGuard, TenantGuard)
-  @RequireRestaurantRoles('OWNER')
+  @RequireRestaurantRoles('OWNER', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get policy version history for restaurant (owner only)' })
   @ApiResponse({ status: 200, description: 'List of historical policy versions' })

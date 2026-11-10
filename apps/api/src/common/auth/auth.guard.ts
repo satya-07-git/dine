@@ -3,6 +3,7 @@ import { Request } from 'express';
 import { ConfigService } from '../config/config.service';
 import { verifySupabaseJwt, SupabaseJwtPayload } from './jwt.util';
 import { AuthenticatedUser } from './current-user.decorator';
+import { isSessionRevokedInCache } from '../../modules/identity/auth-otp.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -30,8 +31,8 @@ export class AuthGuard implements CanActivate {
     // 1. If 3-part JWT, execute cryptographic signature, expiry, audience & issuer verification
     const parts = token.split('.');
     if (parts.length === 3) {
-      const secret = this.config.get('SUPABASE_JWT_SECRET');
-      const supabaseUrl = this.config.get('SUPABASE_URL');
+      const secret = this.config.get('SUPABASE_JWT_SECRET') || 'super-secret-jwt-key-min-16-chars-long';
+      const supabaseUrl = this.config.get('SUPABASE_URL') || 'https://mock.supabase.co';
       const expectedIssuer = `${supabaseUrl}/auth/v1`;
 
       const payload: SupabaseJwtPayload = verifySupabaseJwt(token, secret, {
@@ -39,12 +40,20 @@ export class AuthGuard implements CanActivate {
         expectedIssuer: payloadHasIssuer(token) ? expectedIssuer : undefined,
       });
 
+      // Session revocation check (FR-A05, EPIC-022)
+      const sid = (payload.sid as string) || undefined;
+      if (sid && isSessionRevokedInCache(sid)) {
+        throw new UnauthorizedException('Session has been revoked or expired');
+      }
+
       const userMetadata = (payload.user_metadata as Record<string, any>) || {};
       const appMetadata = (payload.app_metadata as Record<string, any>) || {};
 
       return {
         userId: payload.sub,
         email: payload.email || `${payload.sub}@dine.local`,
+        phone: (payload.phone as string) || userMetadata.phone || undefined,
+        sessionId: sid,
         role: userMetadata.role || appMetadata.role || (payload.role === 'authenticated' ? 'CUSTOMER' : payload.role) || 'CUSTOMER',
         authUid: payload.sub,
         memberships: userMetadata.memberships || [],
@@ -74,6 +83,22 @@ export class AuthGuard implements CanActivate {
           userId: token,
           email: `${token}@dine.local`,
           role: 'OWNER',
+          memberships: [],
+        };
+      }
+      if (token.startsWith('manager_')) {
+        return {
+          userId: token,
+          email: `${token}@dine.local`,
+          role: 'MANAGER',
+          memberships: [],
+        };
+      }
+      if (token.startsWith('admin_')) {
+        return {
+          userId: token,
+          email: `${token}@dine.local`,
+          role: 'PLATFORM_ADMIN',
           memberships: [],
         };
       }

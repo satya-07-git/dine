@@ -41,6 +41,8 @@ async function generateOpenApiSpec() {
     .addTag('Release & Staging Verification', 'Acceptance matrix, concurrency proof, payment replay, security, and staging release gates')
     .addTag('Future Extensions & Scope Definition', 'Deferred scope register, candidate extension feasibility evaluation, microservices scale triggers, and unresolved contracts')
     .addTag('Finalized V2 Compatibility & Claims', 'V2 contracts, claims, 120s expiry, atomic holds, and compatibility')
+    .addTag('Recommendations', 'Deterministic best-available table recommendations and bounded fallback')
+    .addTag('Socket.IO, BullMQ & Event Recovery', 'Authorized Socket.IO rooms, BullMQ/Redis worker queues, and database-backed event recovery')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

@@ -614,7 +614,7 @@ export class NotificationsService {
       try {
         const pool = this.db.getPool();
         const res = await pool.query(
-          `SELECT m.role, m.status FROM restaurant_memberships m
+          `SELECT m.role, m.status FROM restaurant_staff m
            JOIN profiles p ON p.id = m.user_id
            WHERE m.restaurant_id = $1 AND (p.id = $2 OR p.auth_uid = $2) AND m.status = 'ACTIVE'`,
           [entityId, user.userId]
@@ -631,6 +631,13 @@ export class NotificationsService {
       } catch (err) {
         if (err instanceof ForbiddenError) throw err;
         // In offline unit tests, check role from user object if available
+        const userMem = user.memberships && user.memberships.find(m => m.restaurantId === entityId);
+        if (userMem && userMem.status !== 'ACTIVE') {
+          throw new ForbiddenError(
+            `REALTIME_TOPIC_UNAUTHORIZED: Staff membership is ${userMem.status} for restaurant (${topic})`,
+            ErrorCode.REALTIME_TOPIC_UNAUTHORIZED
+          );
+        }
         if (user.role === 'customer') {
           throw new ForbiddenError(
             `REALTIME_TOPIC_UNAUTHORIZED: User does not hold active staff membership for restaurant (${topic})`,

@@ -564,3 +564,55 @@ export const releaseGateEvaluations = pgTable('release_gate_evaluations', {
   accountableOwner: varchar('accountable_owner', { length: 100 }).notNull(),
   evaluatedAt: timestamp('evaluated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ============================================================================
+// 14. EPIC-024 Socket.IO, BullMQ and Database Event Recovery
+// ============================================================================
+
+export const reservationEvents = pgTable('reservation_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  bookingId: uuid('booking_id').notNull(),
+  restaurantId: uuid('restaurant_id').notNull(),
+  version: integer('version').default(1).notNull(),
+  sequenceNumber: integer('sequence_number').default(1).notNull(),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  fromState: varchar('from_state', { length: 50 }),
+  toState: varchar('to_state', { length: 50 }),
+  actorId: uuid('actor_id'),
+  actorRole: varchar('actor_role', { length: 50 }).default('CUSTOMER').notNull(),
+  payload: jsonb('payload').default({}).notNull(),
+  metadata: jsonb('metadata').default({}).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const eventRecoveryCursors = pgTable('event_recovery_cursors', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: uuid('entity_id').notNull(),
+  minRetainedSequence: integer('min_retained_sequence').default(1).notNull(),
+  maxRetainedSequence: integer('max_retained_sequence').default(1).notNull(),
+  minRetainedVersion: integer('min_retained_version').default(1).notNull(),
+  maxRetainedVersion: integer('max_retained_version').default(1).notNull(),
+  retentionWindowSeconds: integer('retention_window_seconds').default(86400).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const bullmqQueueJobs = pgTable('bullmq_queue_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  queueName: varchar('queue_name', { length: 100 }).notNull(),
+  jobId: varchar('job_id', { length: 255 }).notNull().unique(),
+  entityId: uuid('entity_id').notNull(),
+  jobType: varchar('job_type', { length: 100 }).notNull(),
+  version: integer('version').default(1).notNull(),
+  payload: jsonb('payload').default({}).notNull(),
+  status: varchar('status', { length: 50 }).default('PENDING').notNull(),
+  attempts: integer('attempts').default(0).notNull(),
+  maxAttempts: integer('max_attempts').default(5).notNull(),
+  lastError: text('last_error'),
+  deadLetterReason: text('dead_letter_reason'),
+  recoveryOwner: varchar('recovery_owner', { length: 100 }).default('PLATFORM_OPERATIONS'),
+  scheduledFor: timestamp('scheduled_for', { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});

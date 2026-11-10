@@ -10,7 +10,7 @@ import { DatabaseService } from '../db/database.service';
 import { AuthenticatedUser } from './current-user.decorator';
 
 export const RESTAURANT_ROLES_KEY = 'restaurant_roles';
-export const RequireRestaurantRoles = (...roles: Array<'OWNER' | 'MANAGER' | 'HOST'>) =>
+export const RequireRestaurantRoles = (...roles: Array<'OWNER' | 'MANAGER' | 'HOST' | 'STAFF'>) =>
   SetMetadata(RESTAURANT_ROLES_KEY, roles);
 
 @Injectable()
