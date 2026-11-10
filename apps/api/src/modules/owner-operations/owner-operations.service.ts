@@ -880,6 +880,10 @@ export class OwnerOperationsService {
     );
   }
 
+  async listClosures(restaurantId: string) {
+    return this.getClosures(restaurantId);
+  }
+
   async getClosures(restaurantId: string) {
     return this.db
       .getDb()

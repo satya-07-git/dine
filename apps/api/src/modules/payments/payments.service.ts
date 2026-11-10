@@ -370,7 +370,7 @@ export class PaymentsService {
     const expectedSignature = hmac.digest('hex');
 
     if (expectedSignature !== dto.razorpay_signature) {
-      throw new ValidationError('Invalid payment signature', ErrorCode.VALIDATION_ERROR);
+      throw new ValidationError('Invalid payment signature');
     }
 
     return this.executeTx(async (client) => {

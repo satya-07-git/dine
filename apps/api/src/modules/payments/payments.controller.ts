@@ -50,7 +50,7 @@ export class PaymentsController {
     summary: 'Razorpay webhook inbox endpoint',
     description: 'Ingests verified raw gateway webhook events and deduplicates receipt.',
   })
-  @ApiResponse({ status: 200, description: 'Webhook event received and acknowledged' })\
+  @ApiResponse({ status: 200, description: 'Webhook event received and acknowledged' })
   @ApiResponse({ status: 401, description: 'Missing or invalid webhook signature' })
   async handleWebhook(
     @Headers('x-razorpay-signature') signature: string,
@@ -163,7 +163,7 @@ export class PaymentsController {
   @ApiParam({ name: 'id', description: 'Payment attempt UUID' })
   @ApiResponse({ status: 200, description: 'Reconciliation executed successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Payment attempt not found' })\
+  @ApiResponse({ status: 404, description: 'Payment attempt not found' })
   async reconcilePayment(
     @Param('id') paymentAttemptId: string,
     @Body() options?: ReconcilePaymentRequestDto

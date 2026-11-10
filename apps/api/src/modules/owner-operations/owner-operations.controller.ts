@@ -63,7 +63,7 @@ export class OwnerOperationsController {
     description: 'Creates HMAC-SHA256 signed check-in token binding booking and restaurant.',
   })
   @ApiResponse({ status: 201, description: 'QR check-in token generated successfully' })
-  @ApiResponse({ status: 403, description: 'Forbidden: caller lacks membership in restaurant' })\
+  @ApiResponse({ status: 403, description: 'Forbidden: caller lacks membership in restaurant' })
   @ApiResponse({ status: 404, description: 'Booking not found' })
   async generateCheckInQr(
     @Param('id') bookingId: string,
@@ -340,7 +340,7 @@ export class OwnerOperationsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.ownerOpsService.listClosures(id);
+    return this.ownerOpsService.getClosures(id);
   }
 
   @Get('restaurants/:id/policy-history')

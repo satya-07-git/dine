@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as fs from 'fs';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -101,6 +103,36 @@ export async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
+
+  // Serve the Delivery & Architecture Dashboard and Assets
+  const projectRoot = path.resolve(__dirname, '../../..');
+  const dashboardPath = path.join(projectRoot, 'project-delivery-kit', 'tasks', 'dashboard.html');
+  const httpAdapter = app.getHttpAdapter();
+
+  httpAdapter.get('/dashboard', (req: any, res: any) => {
+    if (fs.existsSync(dashboardPath)) {
+      res.sendFile(dashboardPath);
+    } else {
+      res.redirect('/docs');
+    }
+  });
+
+  httpAdapter.get('/', (req: any, res: any) => {
+    res.redirect('/docs');
+  });
+
+  const expressApp = app.getHttpAdapter().getInstance();
+  if (expressApp && typeof expressApp.use === 'function') {
+    const assetsDir = path.join(projectRoot, 'assets');
+    const taskAssetsDir = path.join(projectRoot, 'project-delivery-kit', 'tasks', 'assets');
+    const expressStatic = require('express').static;
+    if (fs.existsSync(assetsDir)) {
+      expressApp.use('/assets', expressStatic(assetsDir));
+    }
+    if (fs.existsSync(taskAssetsDir)) {
+      expressApp.use('/project-delivery-kit/tasks/assets', expressStatic(taskAssetsDir));
+    }
+  }
 
   // OpenAPI / Swagger Documentation
   const swaggerConfig = new DocumentBuilder()
