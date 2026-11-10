@@ -10,32 +10,34 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
 import { OwnerOperationsService } from './owner-operations.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { TenantGuard, RequireRestaurantRoles } from '../../common/auth/tenant.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/auth/current-user.decorator';
+import { CreateTableBlockDto } from '../../common/dto/canonical-validation.dto';
 import {
   OwnerBookingListQueryDto,
   RecordWalkInRequestDto,
   CheckInRequestDto,
-  CreateTableBlockRequestDto,
   UpdateBookingStatusRequestDto,
 } from '@dine/contracts';
 
 @ApiTags('Owner Operations')
-@Controller('owner')
+@Controller(['api/v1/restaurant-ops', 'v1/owner', 'owner'])
 export class OwnerOperationsController {
   constructor(private readonly ownerOpsService: OwnerOperationsService) {}
 
-  @Get('restaurants/:id/bookings')
+  @Get(['reservations', 'restaurants/:id/bookings', '/api/v1/restaurant-ops/reservations', '/v1/owner/reservations'])
   @UseGuards(AuthGuard, TenantGuard)
   @RequireRestaurantRoles('OWNER', 'MANAGER', 'HOST')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get restaurant bookings (staff only)',
+    summary: 'Get restaurant bookings (GET /api/v1/restaurant-ops/reservations)',
     description: 'Enforces tenant isolation: host/manager/owner in restaurant A cannot access restaurant B. Returns bounded, paginated projection of bookings.',
   })
+  @ApiParam({ name: 'id', required: false, description: 'Restaurant UUID (optional if provided via query or membership)' })
+  @ApiQuery({ name: 'restaurant_id', required: false, type: String, description: 'Restaurant UUID' })
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'date', required: false, type: String, description: 'YYYY-MM-DD' })
   @ApiQuery({ name: 'is_walk_in', required: false, type: Boolean })
@@ -44,10 +46,13 @@ export class OwnerOperationsController {
   @ApiResponse({ status: 200, description: 'Bookings list for restaurant' })
   @ApiResponse({ status: 403, description: 'Forbidden: caller lacks active membership in this restaurant' })
   async getRestaurantBookings(
-    @Param('id') id: string,
-    @Query() query?: OwnerBookingListQueryDto
+    @Param('id') id?: string,
+    @Query('restaurant_id') queryRestaurantId?: string,
+    @Query() query?: OwnerBookingListQueryDto,
+    @CurrentUser() user?: AuthenticatedUser
   ) {
-    return this.ownerOpsService.getRestaurantBookings(id, query);
+    const targetId = id || queryRestaurantId || (query as any)?.restaurant_id || user?.memberships?.[0]?.restaurantId || '';
+    return this.ownerOpsService.getRestaurantBookings(targetId, query);
   }
 
   @Post('bookings/:id/qr-token')
@@ -58,7 +63,7 @@ export class OwnerOperationsController {
     description: 'Creates HMAC-SHA256 signed check-in token binding booking and restaurant.',
   })
   @ApiResponse({ status: 201, description: 'QR check-in token generated successfully' })
-  @ApiResponse({ status: 403, description: 'Forbidden: caller lacks membership in restaurant' })
+  @ApiResponse({ status: 403, description: 'Forbidden: caller lacks membership in restaurant' })\
   @ApiResponse({ status: 404, description: 'Booking not found' })
   async generateCheckInQr(
     @Param('id') bookingId: string,
@@ -68,14 +73,15 @@ export class OwnerOperationsController {
     return this.ownerOpsService.generateCheckInQr(user.userId, bookingId, body?.ttl_hours || 24);
   }
 
-  @Post('bookings/:id/check-in')
+  @Post(['bookings/:id/check-in', 'check-in', '/api/v1/restaurant-ops/bookings/:id/check-in', '/v1/owner/check-in'])
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Check in guest using booking ID or QR token',
+    summary: 'Check in guest using booking ID or QR token (POST /api/v1/restaurant-ops/bookings/:id/check-in)',
     description:
       'Performs verified server-side arrival check-in. Validates restaurant binding (host from A cannot check in booking for B) and provides repeat-safe idempotent replays.',
   })
+  @ApiParam({ name: 'id', required: false, description: 'Booking UUID' })
   @ApiResponse({ status: 200, description: 'Guest checked in successfully' })
   @ApiResponse({ status: 400, description: 'Bad Request: Invalid QR token' })
   @ApiResponse({ status: 403, description: 'Forbidden: Host lacks active membership in booking restaurant' })
@@ -94,10 +100,11 @@ export class OwnerOperationsController {
       user.memberships?.[0]?.restaurantId ||
       '';
 
+    const targetId = bookingId || body?.booking_id || (body as any)?.bookingId;
     return this.ownerOpsService.verifyAndCheckIn(
       user.userId,
       staffRestaurantId,
-      { ...body, booking_id: bookingId },
+      { ...body, booking_id: targetId },
       { requestId }
     );
   }
@@ -121,6 +128,64 @@ export class OwnerOperationsController {
     const requestId = req.headers ? req.headers['x-request-id'] : undefined;
     const staffRestaurantId = req.headers ? req.headers['x-restaurant-id'] : user.memberships?.[0]?.restaurantId;
     return this.ownerOpsService.verifyAndCheckIn(user.userId, staffRestaurantId || '', body, { requestId });
+  }
+
+  @Post(['bookings/:id/seat', 'seat', '/api/v1/restaurant-ops/bookings/:id/seat', '/v1/owner/seat'])
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Seat guest booking (POST /api/v1/restaurant-ops/bookings/:id/seat)',
+    description: 'Transitions checked-in/ready booking to SEATED state.',
+  })
+  @ApiParam({ name: 'id', required: false, description: 'Booking UUID' })
+  @ApiResponse({ status: 200, description: 'Booking seated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or invalid parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  async seatBooking(
+    @Param('id') bookingId: string,
+    @Body() body: any,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: any
+  ) {
+    const requestId = req.headers ? req.headers['x-request-id'] : undefined;
+    const targetId = bookingId || body?.booking_id || body?.bookingId;
+    return this.ownerOpsService.updateBookingStatus(
+      targetId,
+      { status: 'SEATED', target_status: 'SEATED', ...body },
+      user?.userId,
+      requestId
+    );
+  }
+
+  @Post(['bookings/:id/complete', 'complete', '/api/v1/restaurant-ops/bookings/:id/complete', '/v1/owner/complete'])
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Complete dining visit (POST /api/v1/restaurant-ops/bookings/:id/complete)',
+    description: 'Transitions seated booking to COMPLETED state and frees table allocation.',
+  })
+  @ApiParam({ name: 'id', required: false, description: 'Booking UUID' })
+  @ApiResponse({ status: 200, description: 'Booking completed successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request or invalid parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  async completeBooking(
+    @Param('id') bookingId: string,
+    @Body() body: any,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: any
+  ) {
+    const requestId = req.headers ? req.headers['x-request-id'] : undefined;
+    const targetId = bookingId || body?.booking_id || body?.bookingId;
+    return this.ownerOpsService.updateBookingStatus(
+      targetId,
+      { status: 'COMPLETED', target_status: 'COMPLETED', ...body },
+      user?.userId,
+      requestId
+    );
   }
 
   @Post('walk-ins')
@@ -170,28 +235,41 @@ export class OwnerOperationsController {
     return this.ownerOpsService.updateBookingStatus(id, body, user?.userId, requestId);
   }
 
-  @Post('tables/:id/blocks')
+  @Post(['table-blocks', 'tables/:id/blocks', '/api/v1/restaurant-ops/table-blocks', '/v1/owner/blocks'])
   @UseGuards(AuthGuard, TenantGuard)
   @RequireRestaurantRoles('OWNER', 'MANAGER')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Schedule table maintenance block (owner / manager only)',
+    summary: 'Schedule table maintenance block (POST /api/v1/restaurant-ops/table-blocks)',
     description: 'Creates a table block interval. Checks for conflicts against existing confirmed/held bookings unless force=true.',
   })
+  @ApiParam({ name: 'id', required: false, description: 'Table UUID (optional if provided in body)' })
   @ApiResponse({ status: 201, description: 'Table block scheduled successfully' })
   @ApiResponse({ status: 400, description: 'Bad Request: Invalid time range or parameters' })
   @ApiResponse({ status: 403, description: 'Forbidden: Caller lacks OWNER or MANAGER role' })
   @ApiResponse({ status: 409, description: 'Conflict: Table block overlaps with existing reservations or holds' })
   async addTableBlock(
-    @Param('id') tableId: string,
-    @Body() body: CreateTableBlockRequestDto,
+    @Param('id') paramTableId: string,
+    @Body() body: CreateTableBlockDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: any
   ) {
     const requestId = req.headers ? req.headers['x-request-id'] : undefined;
-    const restaurantId = req.headers ? req.headers['x-restaurant-id'] : undefined;
-    const restId = restaurantId || user.memberships?.[0]?.restaurantId || '';
-    return this.ownerOpsService.addTableBlock(restId, { ...body, table_id: tableId }, user?.userId, requestId);
+    const tableId = paramTableId || body.tableId || body.table_id || '';
+    const restaurantId =
+      body.restaurantId ||
+      body.restaurant_id ||
+      (req.headers ? req.headers['x-restaurant-id'] : undefined) ||
+      user.memberships?.[0]?.restaurantId ||
+      '';
+    const startTime = body.startsAt || body.start_time || '';
+    const endTime = body.endsAt || body.end_time || '';
+    return this.ownerOpsService.addTableBlock(
+      restaurantId,
+      { ...body, table_id: tableId, start_time: startTime, end_time: endTime, reason: body.reason || 'Operational maintenance' } as any,
+      user?.userId,
+      requestId
+    );
   }
 
   @Get('tables/:id/blocks')
@@ -256,42 +334,25 @@ export class OwnerOperationsController {
   @UseGuards(AuthGuard, TenantGuard)
   @RequireRestaurantRoles('OWNER', 'MANAGER', 'HOST')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'List special closures for restaurant (staff only)' })
+  @ApiOperation({ summary: 'List scheduled special closures for restaurant' })
   @ApiResponse({ status: 200, description: 'List of special closures' })
-  async getSpecialClosures(@Param('id') id: string) {
-    return this.ownerOpsService.getClosures(id);
+  async listSpecialClosures(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.ownerOpsService.listClosures(id);
   }
 
   @Get('restaurants/:id/policy-history')
   @UseGuards(AuthGuard, TenantGuard)
   @RequireRestaurantRoles('OWNER', 'MANAGER')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get policy version history for restaurant (owner only)' })
-  @ApiResponse({ status: 200, description: 'List of historical policy versions' })
-  async getPolicyHistory(@Param('id') id: string) {
-    return this.ownerOpsService.getPolicyHistory(id);
-  }
-
-  @Put('restaurants/:id/floor-plan')
-  @UseGuards(AuthGuard, TenantGuard)
-  @RequireRestaurantRoles('OWNER', 'MANAGER')
-  @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'Update restaurant floor plan with optimistic version guard',
-    description:
-      'Updates floor layout and tables with optimistic version lock. Rejects stale versions (409 Conflict), invalid geometry/capacities (400 Bad Request), and attempts to retire tables with active holds or confirmed reservations (409 Conflict).',
-  })
-  @ApiResponse({ status: 200, description: 'Floor plan updated successfully' })
-  @ApiResponse({ status: 400, description: 'Bad Request: Invalid table geometry or capacity' })
-  @ApiResponse({ status: 403, description: 'Forbidden: Caller lacks OWNER or MANAGER membership in this restaurant' })
-  @ApiResponse({ status: 409, description: 'Conflict: Stale floor plan version or table has active bookings/holds' })
-  async updateFloorPlan(
+  @ApiOperation({ summary: 'Audit log of restaurant policy changes' })
+  @ApiResponse({ status: 200, description: 'Policy audit trail' })
+  async getPolicyHistory(
     @Param('id') id: string,
-    @Body() body: any,
-    @CurrentUser() user: AuthenticatedUser,
-    @Req() req: any
+    @CurrentUser() user: AuthenticatedUser
   ) {
-    const requestId = req.headers ? req.headers['x-request-id'] : undefined;
-    return this.ownerOpsService.updateFloorPlan(id, body, user?.userId, requestId);
+    return this.ownerOpsService.getPolicyHistory(id);
   }
 }

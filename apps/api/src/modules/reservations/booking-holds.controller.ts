@@ -24,10 +24,10 @@ import { ReservationsService } from './reservations.service';
 import { PaymentsService } from '../payments/payments.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
-import { CreateHoldRequestDto } from '@dine/contracts';
+import { CreateHoldDto } from '../../common/dto/canonical-validation.dto';
 
 @ApiTags('Reservations')
-@Controller(['booking-holds', 'v1/holds'])
+@Controller(['api/v1/holds', 'v1/booking-holds', 'v1/holds', 'booking-holds'])
 export class BookingHoldsController {
   constructor(
     private readonly reservationsService: ReservationsService,
@@ -38,7 +38,7 @@ export class BookingHoldsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Create atomic booking hold with idempotency protection',
+    summary: 'Create atomic booking hold with idempotency protection (POST /api/v1/holds)',
     description:
       'Acquires table row lock, rechecks eligibility and safe-expiry, and places an atomic hold protected by GiST range exclusion. Returns hold_id, status, expires_at, server_time, and deposit.',
   })
@@ -54,7 +54,7 @@ export class BookingHoldsController {
   async createHold(
     @CurrentUser('userId') userId: string,
     @Headers('idempotency-key') idempotencyKey: string,
-    @Body() dto: CreateHoldRequestDto,
+    @Body() dto: CreateHoldDto,
     @Req() req: Request,
     @Res() res: Response
   ) {
@@ -62,7 +62,7 @@ export class BookingHoldsController {
     const { result, isReplay } = await this.reservationsService.createHold(
       userId,
       idempotencyKey,
-      dto,
+      dto as any,
       { requestId, ipAddress: req.ip }
     );
 
@@ -117,7 +117,7 @@ export class BookingHoldsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get booking hold details scoped by customer ownership',
+    summary: 'Get booking hold details scoped by customer ownership (GET /api/v1/holds/:id)',
     description:
       'Fetches hold details. Enforces customer IDOR ownership and returns 410 HOLD_EXPIRED if the hold has elapsed.',
   })
@@ -135,7 +135,7 @@ export class BookingHoldsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Cancel active booking hold',
+    summary: 'Cancel active booking hold (DELETE /api/v1/holds/:id)',
     description:
       'Cancels hold, transitions allocation out of protected status, and emits outbox/audit records.',
   })

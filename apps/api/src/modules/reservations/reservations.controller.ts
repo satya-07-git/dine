@@ -23,13 +23,16 @@ import { ReservationsService } from './reservations.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import {
+  ConfirmFreeReservationDto,
+  CancelBookingDto,
+} from '../../common/dto/canonical-validation.dto';
+import {
   CreateFreeBookingRequestDto,
-  CancelBookingRequestDto,
   BookingStatus,
 } from '@dine/contracts';
 
 @ApiTags('Reservations')
-@Controller(['bookings', 'reservations'])
+@Controller(['api/v1/bookings', 'v1/bookings', 'bookings', 'reservations'])
 export class ReservationsController {
   constructor(private readonly reservationsService: ReservationsService) {}
 
@@ -37,7 +40,7 @@ export class ReservationsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'List authenticated customer bookings',
+    summary: 'List authenticated customer bookings (GET /api/v1/bookings)',
     description: 'Retrieves a paginated list of bookings belonging to the authenticated customer.',
   })
   @ApiQuery({ name: 'status', required: false, enum: BookingStatus, description: 'Filter by booking status' })
@@ -54,26 +57,30 @@ export class ReservationsController {
     return this.reservationsService.listCustomerBookings(userId, { status, limit, offset });
   }
 
-  @Post('free')
+  @Post(['free', '/api/v1/reservations/free', '/v1/bookings/free', '/v1/reservations/free'])
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create immediate confirmed free reservation',
+    summary: 'Create or confirm free reservation (POST /api/v1/reservations/free)',
     description:
-      'Creates a confirmed reservation and physical table allocation for restaurants operating in FREE_RESERVATION mode. Protected by atomic row locks and GiST exclusion.',
+      'Creates or confirms a reservation and physical table allocation for restaurants operating in FREE_RESERVATION mode. Protected by atomic row locks and GiST exclusion.',
   })
-  @ApiResponse({ status: 201, description: 'Free reservation created and confirmed successfully' })
+  @ApiResponse({ status: 201, description: 'Free reservation created or confirmed successfully' })
   @ApiResponse({ status: 400, description: 'Validation error: invalid party size or missing parameters' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 409, description: 'Conflict: Table unavailable or capacity mismatch' })
   @ApiResponse({ status: 422, description: 'Unprocessable: Restaurant requires a deposit' })
   async createFreeBooking(
     @CurrentUser('userId') userId: string,
-    @Body() dto: CreateFreeBookingRequestDto,
+    @Body() dto: any,
     @Req() req: Request
   ) {
     const requestId = (req.headers['x-request-id'] as string) || undefined;
+    const holdId = dto?.holdId || dto?.hold_id;
+    if (holdId) {
+      return this.reservationsService.confirmFreeHold(userId, holdId, { requestId });
+    }
     return this.reservationsService.createFreeBooking(userId, dto, { requestId });
   }
 
@@ -81,7 +88,7 @@ export class ReservationsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get reservation details scoped by customer ownership',
+    summary: 'Get reservation details scoped by customer ownership (GET /api/v1/bookings/:id)',
     description: 'Enforces that a customer cannot access another customer booking (IDOR protection)',
   })
   @ApiParam({ name: 'id', description: 'Booking UUID' })
@@ -123,7 +130,7 @@ export class ReservationsController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Cancel reservation with policy check',
+    summary: 'Cancel reservation with policy check (POST /api/v1/bookings/:id/cancel)',
     description:
       'Cancels an active hold or confirmed booking, releases physical table allocation from GiST exclusion, and appends sequenced status event.',
   })
@@ -136,7 +143,7 @@ export class ReservationsController {
   async cancelBooking(
     @CurrentUser('userId') userId: string,
     @Param('id') id: string,
-    @Body() dto: CancelBookingRequestDto,
+    @Body() dto: CancelBookingDto,
     @Req() req: Request
   ) {
     const requestId = (req.headers['x-request-id'] as string) || undefined;

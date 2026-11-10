@@ -15,8 +15,8 @@ import {
 import { RecommendationsService } from './recommendations.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/auth/current-user.decorator';
+import { TableRecommendationDto } from '../../common/dto/canonical-validation.dto';
 import {
-  TableRecommendationRequestDto,
   TableRecommendationResponseDto,
   AutoHoldRequestDto,
   AutoHoldResponseDto,
@@ -27,9 +27,9 @@ import {
 export class RecommendationsController {
   constructor(private readonly recommendationsService: RecommendationsService) {}
 
-  @Post('api/v1/recommendations/tables')
+  @Post(['api/v1/recommendations/tables', 'v1/recommendations', 'recommendations/tables', 'recommendations'])
   @ApiOperation({
-    summary: 'Get deterministic best-available table recommendations',
+    summary: 'Get deterministic best-available table recommendations (POST /api/v1/recommendations/tables)',
     description:
       'Filters mandatory eligibility first, then evaluates deterministic scoring (Capacity Fit 40%, Preference 25%, Location 20%, Operations 15%) with stable tie-breaking. Returns ranked candidates with score explanation; grants NO allocation claim.',
   })
@@ -37,9 +37,9 @@ export class RecommendationsController {
   @ApiResponse({ status: 400, description: 'Validation error' })
   @ApiResponse({ status: 404, description: 'Restaurant not found' })
   async getRecommendations(
-    @Body() dto: TableRecommendationRequestDto,
+    @Body() dto: TableRecommendationDto,
   ): Promise<TableRecommendationResponseDto> {
-    return this.recommendationsService.getRecommendations(dto);
+    return this.recommendationsService.getRecommendations(dto as any);
   }
 
   @Post('v1/recommendations')
@@ -49,12 +49,12 @@ export class RecommendationsController {
   })
   @ApiResponse({ status: 200, description: 'Ranked table recommendations' })
   async getRecommendationsLegacy(
-    @Body() dto: TableRecommendationRequestDto,
+    @Body() dto: TableRecommendationDto,
   ): Promise<TableRecommendationResponseDto> {
-    return this.recommendationsService.getRecommendations(dto);
+    return this.recommendationsService.getRecommendations(dto as any);
   }
 
-  @Post('api/v1/recommendations/holds')
+  @Post(['api/v1/recommendations/holds', 'v1/recommendations/holds', 'recommendations/holds'])
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiHeader({ name: 'Idempotency-Key', required: false, description: 'Client idempotency key' })
@@ -77,7 +77,7 @@ export class RecommendationsController {
     );
   }
 
-  @Post('api/v1/holds/auto')
+  @Post(['api/v1/holds/auto', 'v1/holds/auto', 'holds/auto'])
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
   @ApiHeader({ name: 'Idempotency-Key', required: false })

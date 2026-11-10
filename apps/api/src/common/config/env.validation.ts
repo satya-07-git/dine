@@ -4,7 +4,7 @@ export const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.coerce.number().default(3000),
-    API_PREFIX: z.string().default('/v1'),
+    API_PREFIX: z.string().default(''),
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 
     // CORS Configuration

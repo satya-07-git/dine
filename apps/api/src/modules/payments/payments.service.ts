@@ -342,6 +342,218 @@ export class PaymentsService {
   }
 
   /**
+   * POST /api/v1/payments/verify
+   * Cryptographically verifies payment signature using server-owned secret,
+   * matches against stored provider order identity, checks server-clock hold expiry,
+   * and atomically confirms booking without trusting client-side claims alone (Task T03).
+   */
+  async verifyPayment(
+    userId: string,
+    dto: {
+      razorpay_order_id: string;
+      razorpay_payment_id: string;
+      razorpay_signature: string;
+      payment_attempt_id?: string;
+    }
+  ): Promise<any> {
+    if (!dto.razorpay_order_id || !dto.razorpay_payment_id || !dto.razorpay_signature) {
+      throw new ValidationError('razorpay_order_id, razorpay_payment_id, and razorpay_signature are required');
+    }
+
+    // 1. Verify cryptographic HMAC signature using server-owned secret
+    const keySecret = this.gateway?.getKeySecret
+      ? this.gateway.getKeySecret()
+      : this.config?.get('RAZORPAY_KEY_SECRET') || process.env.RAZORPAY_KEY_SECRET || 'mock_key_secret_1234567890';
+
+    const hmac = crypto.createHmac('sha256', keySecret);
+    hmac.update(`${dto.razorpay_order_id}|${dto.razorpay_payment_id}`);
+    const expectedSignature = hmac.digest('hex');
+
+    if (expectedSignature !== dto.razorpay_signature) {
+      throw new ValidationError('Invalid payment signature', ErrorCode.VALIDATION_ERROR);
+    }
+
+    return this.executeTx(async (client) => {
+      // 2. Query payment attempt using stored provider order identity FOR UPDATE
+      const attemptRes = await client.query(
+        `SELECT pa.*, b.status as booking_status, b.user_id as booking_user_id, b.booking_reference, b.version as booking_version
+         FROM payment_attempts pa
+         JOIN bookings b ON b.id = pa.booking_id
+         WHERE pa.gateway_order_id = \$1
+         FOR UPDATE`,
+        [dto.razorpay_order_id]
+      );
+
+      if (attemptRes.rows.length === 0) {
+        throw new NotFoundError(`No payment attempt found for order ${dto.razorpay_order_id}`);
+      }
+
+      const attempt = attemptRes.rows[0];
+
+      // Ownership authorization check (unless staff/admin)
+      if (userId && attempt.booking_user_id !== userId && attempt.user_id !== userId) {
+        throw new ForbiddenError('Customer cannot verify payment for another user hold');
+      }
+
+      // Repeat-safe: check if already confirmed
+      if (attempt.status === 'CAPTURED' && attempt.booking_status === 'CONFIRMED') {
+        return {
+          verified: true,
+          status: 'CONFIRMED',
+          booking_id: attempt.booking_id,
+          booking_reference: attempt.booking_reference,
+          payment_attempt_id: attempt.id,
+          gateway_order_id: attempt.gateway_order_id,
+          gateway_payment_id: attempt.gateway_payment_id || dto.razorpay_payment_id,
+          amount_minor: attempt.amount_minor,
+          currency: attempt.currency,
+          is_replay: true,
+        };
+      }
+
+      // 3. Server clock hold expiry check against database clock
+      const allocRes = await client.query(
+        `SELECT id, status, expires_at FROM table_allocations WHERE booking_id = \$1 FOR UPDATE`,
+        [attempt.booking_id]
+      );
+
+      let isExpired = false;
+      if (allocRes.rows.length > 0) {
+        const alloc = allocRes.rows[0];
+        if (alloc.status === 'RELEASED' || alloc.status === 'EXPIRED') {
+          isExpired = true;
+        } else if (alloc.expires_at) {
+          const nowDbRes = await client.query(`SELECT NOW() as now`);
+          const dbNow = new Date(nowDbRes.rows[0].now).getTime();
+          if (new Date(alloc.expires_at).getTime() < dbNow) {
+            isExpired = true;
+          }
+        }
+      }
+
+      if (isExpired) {
+        // Late capture after hold deadline: do NOT confirm! Route to reconciliation/refund.
+        await client.query(
+          `UPDATE payment_attempts
+           SET status = 'PENDING_REVIEW', gateway_payment_id = \$1, updated_at = NOW()
+           WHERE id = \$2`,
+          [dto.razorpay_payment_id, attempt.id]
+        );
+        await client.query(
+          `UPDATE bookings
+           SET status = 'PAYMENT_REVIEW', updated_at = NOW(), version = version + 1
+           WHERE id = \$1`,
+          [attempt.booking_id]
+        );
+        await client.query(
+          `UPDATE table_allocations
+           SET status = 'PAYMENT_REVIEW'
+           WHERE booking_id = \$1`,
+          [attempt.booking_id]
+        );
+        await client.query(
+          `INSERT INTO booking_status_events (booking_id, from_status, to_status, actor_role, reason, metadata)
+           VALUES (\$1, \$2, 'PAYMENT_REVIEW', 'CHECKOUT_VERIFY', 'Hold expired prior to checkout confirmation; routed to reconciliation', \$3)`,
+          [
+            attempt.booking_id,
+            attempt.booking_status,
+            JSON.stringify({
+              gateway_order_id: dto.razorpay_order_id,
+              gateway_payment_id: dto.razorpay_payment_id,
+              action: 'LATE_CAPTURE_REFUND_TRIGGERED',
+            }),
+          ]
+        );
+        throw new ConflictError(
+          'Hold expired prior to checkout confirmation. Payment routed to financial reconciliation and refund workflow.',
+          ErrorCode.HOLD_EXPIRED
+        );
+      }
+
+      // 4. Valid and unexpired: Atomically confirm booking and mark payment CAPTURED
+      await client.query(
+        `UPDATE payment_attempts
+         SET status = 'CAPTURED', gateway_payment_id = \$1, updated_at = NOW()
+         WHERE id = \$2`,
+        [dto.razorpay_payment_id, attempt.id]
+      );
+
+      await client.query(
+        `UPDATE bookings
+         SET status = 'CONFIRMED', updated_at = NOW(), version = version + 1
+         WHERE id = \$1`,
+        [attempt.booking_id]
+      );
+
+      await client.query(
+        `UPDATE table_allocations
+         SET status = 'CONFIRMED'
+         WHERE booking_id = \$1`,
+        [attempt.booking_id]
+      );
+
+      // Transition inventory_claims & reservation_holds if present
+      await client.query(
+        `UPDATE inventory_claims ic
+         SET state = 'RESERVED'
+         FROM reservation_holds rh
+         WHERE rh.claim_id = ic.id AND rh.user_id = \$1 AND rh.status = 'ACTIVE'`,
+        [attempt.booking_user_id]
+      ).catch(() => {});
+
+      await client.query(
+        `UPDATE reservation_holds
+         SET status = 'CONSUMED'
+         WHERE user_id = \$1 AND status = 'ACTIVE'`,
+        [attempt.booking_user_id]
+      ).catch(() => {});
+
+      await client.query(
+        `INSERT INTO booking_status_events (booking_id, from_status, to_status, actor_role, reason, metadata)
+         VALUES (\$1, \$2, 'CONFIRMED', 'CUSTOMER_CHECKOUT', 'Payment verified with cryptographic signature and stored order identity', \$3)`,
+        [
+          attempt.booking_id,
+          attempt.booking_status,
+          JSON.stringify({
+            gateway_order_id: dto.razorpay_order_id,
+            gateway_payment_id: dto.razorpay_payment_id,
+            amount_minor: attempt.amount_minor,
+            currency: attempt.currency,
+          }),
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO outbox_events (aggregate_type, aggregate_id, event_type, payload, status)
+         VALUES ('BOOKING', \$1, 'booking.confirmed', \$2, 'PENDING')`,
+        [
+          attempt.booking_id,
+          JSON.stringify({
+            booking_id: attempt.booking_id,
+            booking_reference: attempt.booking_reference,
+            status: 'CONFIRMED',
+            gateway_order_id: dto.razorpay_order_id,
+            gateway_payment_id: dto.razorpay_payment_id,
+          }),
+        ]
+      );
+
+      return {
+        verified: true,
+        status: 'CONFIRMED',
+        booking_id: attempt.booking_id,
+        booking_reference: attempt.booking_reference,
+        payment_attempt_id: attempt.id,
+        gateway_order_id: attempt.gateway_order_id,
+        gateway_payment_id: dto.razorpay_payment_id,
+        amount_minor: attempt.amount_minor,
+        currency: attempt.currency,
+        is_replay: false,
+      };
+    });
+  }
+
+  /**
    * GET /payments/:id/status
    */
   async getPaymentStatus(

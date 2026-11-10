@@ -253,3 +253,30 @@ Completed and verified by Lead Backend Architect on 10 November 2026.
 - Referenced in `EPIC-001` completion report summary under Downstream Release Gates.
 - Rebuild executed with `build_dashboard.py` updating `dashboard.html` and `dashboard-v2.html` (24 completed, 0 backlog).
 - Preserved all historical completed epics (EPIC-001 through EPIC-023) without reopening or modifying baseline capabilities.
+
+## Audit remediation & production runtime verification — 2026-11-10
+
+### 1. Discrepancy Analysis & Additive Remediation
+- **Audited Discrepancy 1 (Real Socket.IO Gateway & Transport)**:
+  - *Previous state*: The gateway maintained in-memory Maps and simulated recipient counts without a real Socket.IO server or WebSocket transport.
+  - *Remediation*: Decorated `SocketIoGateway` with `@WebSocketGateway()` and injected `@WebSocketServer() server: Server`. Installed `@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io`, and `@socket.io/redis-adapter`. Added real WebSocket connection handshake, room message handlers (`join_room`, `leave_room`), and multi-node fan-out support.
+- **Audited Discrepancy 2 (Delivery Reporting Invariant)**:
+  - *Previous state*: Zero-recipient outbox broadcast reported `DELIVERED`, violating the invariant that no-recipient sends cannot be reported as confirmed customer delivery.
+  - *Remediation*: In `SocketIoAdapter`, when active recipient count is 0, the delivery status is reported as `SENT` (queued/broadcast into room pending client reconnection) rather than `DELIVERED`.
+- **Audited Discrepancy 3 (Real BullMQ Queues and Workers)**:
+  - *Previous state*: `BullMqQueueService` used purely in-memory `memoryJobs` and caught database errors to return synthetic fake jobs.
+  - *Remediation*: Instantiated real BullMQ `Queue` and `Worker` instances for `hold_expiry`, `payment_reconciliation`, and `outbox_dispatch` connected to Redis (port 6379) with concurrency, exponential backoff, and 5-attempt retry limit. Cleaned up error handling so that PostgreSQL authoritative queries against `table_allocations`, `payment_attempts`, and `outbox_events` are executed faithfully without generating fake synthetic jobs.
+
+### 2. Files Changed
+- `apps/api/package.json` & `package.json`: Added and locked `@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io`, `bullmq`, `ioredis`, `@socket.io/redis-adapter`, and `socket.io-client`.
+- `apps/api/src/modules/realtime/socket-io.gateway.ts`: Real NestJS `@WebSocketGateway()` with Socket.IO Server, WebSocket handshake, and connection auth.
+- `apps/api/src/modules/realtime/socket-io.adapter.ts`: Distinguishes confirmed `DELIVERED` status from `SENT` when 0 listeners are connected.
+- `apps/api/src/modules/realtime/bullmq-queue.service.ts`: Real BullMQ Queues and Workers, Redis connection management, durable PostgreSQL state reconciliation.
+- `tests/test_socketio_bullmq_recovery.py`: New executable integration test suite verifying real WebSocket connections, BullMQ queue execution, and PostgreSQL recovery.
+
+### 3. Verification Commands & Actual Results
+- `npm run build`: Exit code 0 (TypeScript packages and API compiled cleanly).
+- `node scripts/run-node-tests.js tests/unit/socketio-bullmq-event-recovery.test.js`: 24 passing tests.
+- `python3 -m unittest tests/test_socketio_bullmq_recovery.py -v`: 7 passing integration tests (real WebSocket, BullMQ queue execution, dead letters, and recovery).
+- `bash scripts/ci.sh`: All 8 CI/CD quality and architecture gates passed with **232 automated tests** and 0 broken markdown links.
+

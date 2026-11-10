@@ -30,24 +30,27 @@ import { PaymentsService } from './payments.service';
 import { AuthGuard } from '../../common/auth/auth.guard';
 import { CurrentUser, AuthenticatedUser } from '../../common/auth/current-user.decorator';
 import {
-  CreatePaymentOrderRequestDto,
-  CreateRefundRequestDto,
+  CreatePaymentOrderDto,
+  VerifyPaymentDto,
+  CreateRefundDto,
+} from '../../common/dto/canonical-validation.dto';
+import {
   ReconcilePaymentRequestDto,
   PaymentIncidentListQueryDto,
   ResolvePaymentIncidentRequestDto,
 } from '@dine/contracts';
 
 @ApiTags('Payments')
-@Controller('payments')
+@Controller(['api/v1/payments', 'v1/payments', 'payments'])
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Post('webhooks/razorpay')
+  @Post(['webhooks/razorpay', '/api/v1/webhooks/razorpay', '/v1/webhooks/razorpay'])
   @ApiOperation({
     summary: 'Razorpay webhook inbox endpoint',
     description: 'Ingests verified raw gateway webhook events and deduplicates receipt.',
   })
-  @ApiResponse({ status: 200, description: 'Webhook event received and acknowledged' })
+  @ApiResponse({ status: 200, description: 'Webhook event received and acknowledged' })\
   @ApiResponse({ status: 401, description: 'Missing or invalid webhook signature' })
   async handleWebhook(
     @Headers('x-razorpay-signature') signature: string,
@@ -83,7 +86,7 @@ export class PaymentsController {
   async createPaymentOrder(
     @CurrentUser('userId') userId: string,
     @Headers('idempotency-key') idempotencyKey: string,
-    @Body() dto: CreatePaymentOrderRequestDto,
+    @Body() dto: CreatePaymentOrderDto,
     @Req() req: Request,
     @Res() res: Response
   ) {
@@ -104,6 +107,29 @@ export class PaymentsController {
       res.setHeader('X-Idempotent-Replay', 'true');
     }
     return res.status(HttpStatus.CREATED).json(result);
+  }
+
+  @Post('verify')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Verify server-side checkout payment evidence (EPIC-027 Task T03)',
+    description:
+      'Verifies cryptographic gateway signature, compares stored provider order identity, enforces server-clock hold expiry, and atomically confirms reservation without trusting client success alone.',
+  })
+  @ApiResponse({ status: 200, description: 'Payment verified and reservation confirmed' })
+  @ApiResponse({ status: 400, description: 'Invalid signature or missing parameters' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden: caller is not authorized for this order' })
+  @ApiResponse({ status: 404, description: 'Payment attempt or order not found' })
+  @ApiResponse({ status: 409, description: 'Hold expired prior to verification; routed to reconciliation' })
+  async verifyPayment(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: VerifyPaymentDto,
+    @Res() res: Response
+  ) {
+    const result = await this.paymentsService.verifyPayment(userId, dto);
+    return res.status(HttpStatus.OK).json(result);
   }
 
   @Get(':id/status')
@@ -137,7 +163,7 @@ export class PaymentsController {
   @ApiParam({ name: 'id', description: 'Payment attempt UUID' })
   @ApiResponse({ status: 200, description: 'Reconciliation executed successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 404, description: 'Payment attempt not found' })
+  @ApiResponse({ status: 404, description: 'Payment attempt not found' })\
   async reconcilePayment(
     @Param('id') paymentAttemptId: string,
     @Body() options?: ReconcilePaymentRequestDto
@@ -154,17 +180,6 @@ export class PaymentsController {
     description: 'Issues an idempotent refund with replay safety, amount validation, and immutable audit logging.',
   })
   @ApiParam({ name: 'id', description: 'Payment attempt UUID' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      required: ['amount_minor', 'reason', 'idempotency_key'],
-      properties: {
-        amount_minor: { type: 'integer', example: 50000 },
-        reason: { type: 'string', example: 'Customer cancellation within free window' },
-        idempotency_key: { type: 'string', example: 'rfnd_req_12345' },
-      },
-    },
-  })
   @ApiResponse({ status: 200, description: 'Refund created or idempotent replay returned' })
   @ApiResponse({ status: 400, description: 'Validation error (invalid amount or missing idempotency key)' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
@@ -173,7 +188,7 @@ export class PaymentsController {
   async issueRefund(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id') paymentAttemptId: string,
-    @Body() dto: CreateRefundRequestDto
+    @Body() dto: CreateRefundDto
   ) {
     const isStaffOrSupport = user.role === 'OWNER' || user.role === 'MANAGER' || user.role === 'ADMIN';
     return this.paymentsService.issueRefund(user.userId, paymentAttemptId, dto, isStaffOrSupport);
